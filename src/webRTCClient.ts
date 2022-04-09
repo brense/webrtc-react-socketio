@@ -83,8 +83,9 @@ function createClient(signalingChannel: SignalingChannel) {
       channels[remotePeerId] = channel
     }
     channel.onmessage = onMessage.next
-    channel.onopen = () => onChannelOpen.next(remotePeerId)
+    channel.onopen = () => { console.log('channels', channels); onChannelOpen.next(remotePeerId) }
     channel.onclose = () => {
+      console.log('channels', channels);
       if (peers[remotePeerId]) {
         peers[remotePeerId].close()
         delete peers[remotePeerId]
@@ -100,7 +101,7 @@ function createClient(signalingChannel: SignalingChannel) {
     console.log('create new connection with', remotePeerId)
     const conn = new RTCPeerConnection()
     conn.onicecandidate = (event: RTCPeerConnectionIceEvent) => {
-      console.log('send ice candidate', remotePeerId, channels)
+      console.log('send ice candidate', remotePeerId)
       if (!conn || !event || !event.candidate) return
       signalingChannel.sendCandidate({
         candidate: event.candidate,
@@ -112,7 +113,7 @@ function createClient(signalingChannel: SignalingChannel) {
     conn.ondatachannel = (event: RTCDataChannelEvent) => {
       channels[remotePeerId] = event.channel
       setDataChannelListeners(event.channel, remotePeerId)
-      console.log('received data channel', remotePeerId, channels)
+      console.log('received data channel', remotePeerId)
     }
     conn.ontrack = onTrack.next
     conn.oniceconnectionstatechange = (event: Event) => {
