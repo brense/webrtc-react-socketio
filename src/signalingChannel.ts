@@ -28,11 +28,11 @@ export type CandidatePayload = {
 }
 
 export type SignalingChannel = {
-  onConnect: { subscribe: (subscriber: (peerId: string) => void) => void }
-  onSignal: { subscribe: (subscriber: (payload: SignalPayload) => void) => void }
-  onOffer: { subscribe: (subscriber: (payload: OfferPayload) => void) => void }
-  onAnswer: { subscribe: (subscriber: (payload: OfferPayload) => void) => void }
-  onCandidate: { subscribe: (subscriber: (payload: CandidatePayload) => void) => void }
+  onConnect: Subject<string>
+  onSignal: Subject<SignalPayload>
+  onOffer: Subject<OfferPayload>
+  onAnswer: Subject<OfferPayload>
+  onCandidate: Subject<CandidatePayload>
   sendOffer: (payload: SessionDescription) => void
   sendAnswer: (payload: SessionDescription) => void
   sendCandidate: (payload: IceCandidate) => void
@@ -46,12 +46,12 @@ function createSocketIOSignalingChannel(socket: Socket): SignalingChannel {
   const onCandidate = new Subject<CandidatePayload>()
 
   socket.on('connect', () => {
-    console.log(`Connected to websocket, id: ${socket.id}`)
+    console.log(`Connected to websocket, localPeerId: ${socket.id}`)
     onConnect.next(socket.id)
-    socket.on('signal', onSignal.next)
-    socket.on('offer', onOffer.next)
-    socket.on('answer', onAnswer.next)
-    socket.on('candidate', onCandidate.next)
+    socket.on('signal', payload => onSignal.next(payload))
+    socket.on('offer', payload => onOffer.next(payload))
+    socket.on('answer', payload => onAnswer.next(payload))
+    socket.on('candidate', payload => onCandidate.next(payload))
   })
 
   return {

@@ -8,11 +8,12 @@ import createSocketIOSignalingChannel from './signalingChannel'
 import createWebRTCClient from './webRTCClient'
 
 const port = window.location.port || (window.location.protocol === 'https:' ? 443 : 80)
-const socketUrl = `${window.location.protocol}://${window.location.hostname}:${port}`
-const socket = io(socketUrl)
+const socketUrl = `${window.location.protocol}//${window.location.hostname}:${port}`
+const socket = io(socketUrl, { autoConnect: true })
 
 const signalingChannel = createSocketIOSignalingChannel(socket)
 const webRTCClient = createWebRTCClient(signalingChannel)
+webRTCClient.connect()
 
 ReactDOM.render(
   <React.StrictMode>

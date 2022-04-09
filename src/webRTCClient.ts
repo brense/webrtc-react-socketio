@@ -15,7 +15,7 @@ function createClient(signalingChannel: SignalingChannel) {
   const connect = async () => {
     signalingChannel.onConnect.subscribe(peerId => {
       localPeerId = peerId
-      signalingChannel.onSignal.subscribe(createOffer)
+      signalingChannel.onSignal.subscribe(payload => true ? createOffer(payload) : getPeerConnection(payload.from))
       signalingChannel.onOffer.subscribe(receiveOffer)
       signalingChannel.onAnswer.subscribe(receiveAnswer)
       signalingChannel.onCandidate.subscribe(receiveCandidate)
@@ -27,42 +27,54 @@ function createClient(signalingChannel: SignalingChannel) {
     peers.forEach(peer => channels[peer].readyState === 'open' && channels[peer].send(message))
   }
 
-  async function createOffer({ from }: { from: string }) {
-    const conn = getPeerConnection(from)
-    const channel = conn.createDataChannel(from)
-    setDataChannelListeners(channel, from)
-    channels[from] = channel
-    const offer = await conn.createOffer()
-    await conn.setLocalDescription(offer)
-    signalingChannel.sendOffer({
-      sdp: conn.localDescription,
-      from: localPeerId,
-      to: from
-    })
+  async function createOffer({ from: remotePeerId }: { from: string }) {
+    const conn = getPeerConnection(remotePeerId)
+    console.log('create offer for', remotePeerId)
+    try {
+      await conn.setLocalDescription(await conn.createOffer())
+      signalingChannel.sendOffer({
+        sdp: conn.localDescription,
+        from: localPeerId,
+        to: remotePeerId
+      })
+    } catch (err) {
+      console.error(err)
+    }
   }
 
-  async function receiveOffer({ from, sdp }: { from: string, sdp: RTCSessionDescriptionInit }) {
-    const conn = getPeerConnection(from)
-    await conn.setRemoteDescription(new RTCSessionDescription(sdp))
-    // TODO: add track
-    const answer = await conn.createAnswer()
-    await conn.setLocalDescription(answer)
+  async function receiveOffer({ from: remotePeerId, sdp }: { from: string, sdp: RTCSessionDescriptionInit }) {
+    const conn = getPeerConnection(remotePeerId)
+    try {
+      conn.signalingState !== 'stable' && await conn.setRemoteDescription(new RTCSessionDescription(sdp))
+
+      const channel = conn.createDataChannel(remotePeerId)
+      setDataChannelListeners(channel, remotePeerId)
+      channels[remotePeerId] = channel
+
+      conn.signalingState !== 'stable' && await conn.setLocalDescription(await conn.createAnswer())
+    } catch (err) {
+      console.error(err, conn)
+    }
     signalingChannel.sendAnswer({
       sdp: conn.localDescription,
       from: localPeerId,
-      to: from
+      to: remotePeerId
     })
   }
 
-  function receiveAnswer({ from, sdp }: { from: string, sdp: RTCSessionDescriptionInit }) {
-    const conn = getPeerConnection(from)
-    conn.setRemoteDescription(new RTCSessionDescription(sdp))
+  async function receiveAnswer({ from: remotePeerId, sdp }: { from: string, sdp: RTCSessionDescriptionInit }) {
+    const conn = getPeerConnection(remotePeerId)
+    try {
+      await conn.setRemoteDescription(new RTCSessionDescription(sdp))
+    } catch (err) {
+      //console.error(err, remotePeerId)
+    }
   }
 
-  function receiveCandidate({ from, candidate }: { from: string, candidate: RTCIceCandidateInit }) {
-    const conn = getPeerConnection(from)
+  async function receiveCandidate({ from: remotePeerId, candidate }: { from: string, candidate: RTCIceCandidateInit }) {
+    const conn = getPeerConnection(remotePeerId)
     if (conn.remoteDescription !== null && candidate !== null) {
-      conn.addIceCandidate(new RTCIceCandidate(candidate))
+      await conn.addIceCandidate(new RTCIceCandidate(candidate))
     }
   }
 
@@ -82,12 +94,13 @@ function createClient(signalingChannel: SignalingChannel) {
   }
 
   function getPeerConnection(remotePeerId: string) {
-    if (peers[remotePeerId]) {
+    if (remotePeerId && peers[remotePeerId]) {
       return peers[remotePeerId]
     }
+    console.log('create new connection with', remotePeerId)
     const conn = new RTCPeerConnection()
-    peers[remotePeerId] = conn
     conn.onicecandidate = (event: RTCPeerConnectionIceEvent) => {
+      console.log('send ice candidate', remotePeerId, channels)
       if (!conn || !event || !event.candidate) return
       signalingChannel.sendCandidate({
         candidate: event.candidate,
@@ -95,23 +108,27 @@ function createClient(signalingChannel: SignalingChannel) {
         to: remotePeerId
       })
     }
+    conn.onnegotiationneeded = () => { console.log('negotation for', remotePeerId); createOffer({ from: remotePeerId }) }
     conn.ondatachannel = (event: RTCDataChannelEvent) => {
-      console.log('received data channel', remotePeerId)
       channels[remotePeerId] = event.channel
       setDataChannelListeners(event.channel, remotePeerId)
+      console.log('received data channel', remotePeerId, channels)
     }
     conn.ontrack = onTrack.next
     conn.oniceconnectionstatechange = (event: Event) => {
       if (conn.iceConnectionState === 'connected') {
+        console.log('peer connected', remotePeerId)
         onPeerConnected.next(remotePeerId)
       }
       if (conn.iceConnectionState === 'disconnected') {
+        console.log('peer disconnected', remotePeerId)
         if (peers[remotePeerId]) {
           delete peers[remotePeerId]
         }
         onPeerDisconnected.next(remotePeerId)
       }
     }
+    peers[remotePeerId] = conn
     return conn
   }
 
