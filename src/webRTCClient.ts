@@ -1,8 +1,9 @@
 import { Subject } from 'rxjs'
 import { SignalingChannel } from './signalingChannel'
 
-function createClient(signalingChannel: SignalingChannel) {
+function createClient(signalingChannelCreator: () => SignalingChannel) {
   let localPeerId: string
+  let signalingChannel: SignalingChannel
   const peers: { [key: string]: RTCPeerConnection } = {}
   const channels: { [key: string]: RTCDataChannel } = {}
   const onMessage = new Subject<MessageEvent>()
@@ -12,13 +13,15 @@ function createClient(signalingChannel: SignalingChannel) {
   const onPeerConnected = new Subject<string>()
   const onPeerDisconnected = new Subject<string>()
 
-  const connect = async () => {
+  function connect() {
+    signalingChannel = signalingChannelCreator()
     signalingChannel.onConnect.subscribe(peerId => {
       localPeerId = peerId
-      signalingChannel.onSignal.subscribe(payload => true ? createOffer(payload) : getPeerConnection(payload.from))
+      signalingChannel.onSignal.subscribe(createOffer)
       signalingChannel.onOffer.subscribe(receiveOffer)
       signalingChannel.onAnswer.subscribe(receiveAnswer)
       signalingChannel.onCandidate.subscribe(receiveCandidate)
+      signalingChannel.onDisconnected.subscribe(handlePeerDisconnected)
     })
   }
 
@@ -39,6 +42,26 @@ function createClient(signalingChannel: SignalingChannel) {
       })
     } catch (err) {
       console.error(err)
+    }
+  }
+
+  async function receiveSessionDescription({ from: remotePeerId, sdp }: { from: string, sdp: RTCSessionDescriptionInit }) {
+    const description = new RTCSessionDescription(sdp)
+    if (description.type) {
+      const conn = getPeerConnection(remotePeerId)
+      conn.signalingState !== 'stable' && await conn.setRemoteDescription(description)
+      if (description.type === 'offer') {
+        // TODO: create audio stream...
+        const channel = conn.createDataChannel(remotePeerId)
+        setDataChannelListeners(channel, remotePeerId)
+        channels[remotePeerId] = channel
+        conn.signalingState !== 'stable' && await conn.setLocalDescription(await conn.createAnswer())
+      }
+      signalingChannel.sendAnswer({ // TODO: singalingChannel.sendSessionDescription...
+        sdp: conn.localDescription,
+        from: localPeerId,
+        to: remotePeerId
+      })
     }
   }
 
@@ -64,10 +87,13 @@ function createClient(signalingChannel: SignalingChannel) {
 
   async function receiveAnswer({ from: remotePeerId, sdp }: { from: string, sdp: RTCSessionDescriptionInit }) {
     const conn = getPeerConnection(remotePeerId)
-    try {
-      await conn.setRemoteDescription(new RTCSessionDescription(sdp))
-    } catch (err) {
-      //console.error(err, remotePeerId)
+    const description = new RTCSessionDescription(sdp)
+    if (description.type) {
+      try {
+        await conn.setRemoteDescription(description)
+      } catch (err) {
+        console.error(err, remotePeerId)
+      }
     }
   }
 
@@ -92,6 +118,14 @@ function createClient(signalingChannel: SignalingChannel) {
       }
       onChannelClose.next(remotePeerId)
     }
+  }
+
+  function handlePeerDisconnected(remotePeerId: string) {
+    console.log('peer disconnected', remotePeerId)
+    if (peers[remotePeerId]) {
+      delete peers[remotePeerId]
+    }
+    onPeerDisconnected.next(remotePeerId)
   }
 
   function getPeerConnection(remotePeerId: string) {
@@ -122,11 +156,7 @@ function createClient(signalingChannel: SignalingChannel) {
         onPeerConnected.next(remotePeerId)
       }
       if (conn.iceConnectionState === 'disconnected') {
-        console.log('peer disconnected', remotePeerId)
-        if (peers[remotePeerId]) {
-          delete peers[remotePeerId]
-        }
-        onPeerDisconnected.next(remotePeerId)
+        handlePeerDisconnected(remotePeerId)
       }
     }
     peers[remotePeerId] = conn

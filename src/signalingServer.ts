@@ -24,9 +24,9 @@ websocket.on('connection', socket => {
   console.log(`peer ${socket.id} connected`)
   socket.broadcast.emit('signal', { from: socket.id })
 
-  socket.on('offer', payload => socket.broadcast.emit('offer', payload))
-  socket.on('answer', payload => socket.broadcast.emit('answer', payload))
-  socket.on('candidate', payload => socket.broadcast.emit('candidate', payload))
+  socket.on('offer', payload => websocket.to(payload.to).emit('offer', payload))
+  socket.on('answer', payload => websocket.to(payload.to).emit('answer', payload))
+  socket.on('candidate', payload => websocket.to(payload.to).emit('candidate', payload))
 
   socket.on('disconnect', () => {
     socket.broadcast.emit('disconnected', socket.id)
