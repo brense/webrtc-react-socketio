@@ -45,31 +45,12 @@ function createClient(signalingChannelCreator: () => SignalingChannel) {
     }
   }
 
-  async function receiveSessionDescription({ from: remotePeerId, sdp }: { from: string, sdp: RTCSessionDescriptionInit }) {
-    const description = new RTCSessionDescription(sdp)
-    if (description.type) {
-      const conn = getPeerConnection(remotePeerId)
-      conn.signalingState !== 'stable' && await conn.setRemoteDescription(description)
-      if (description.type === 'offer') {
-        // TODO: create audio stream...
-        const channel = conn.createDataChannel(remotePeerId)
-        setDataChannelListeners(channel, remotePeerId)
-        channels[remotePeerId] = channel
-        conn.signalingState !== 'stable' && await conn.setLocalDescription(await conn.createAnswer())
-      }
-      signalingChannel.sendAnswer({ // TODO: singalingChannel.sendSessionDescription...
-        sdp: conn.localDescription,
-        from: localPeerId,
-        to: remotePeerId
-      })
-    }
-  }
-
   async function receiveOffer({ from: remotePeerId, sdp }: { from: string, sdp: RTCSessionDescriptionInit }) {
     const conn = getPeerConnection(remotePeerId)
     try {
       conn.signalingState !== 'stable' && await conn.setRemoteDescription(new RTCSessionDescription(sdp))
 
+      // TODO: create audio stream... https://www.html5rocks.com/en/tutorials/webrtc/basics/
       const channel = conn.createDataChannel(remotePeerId)
       setDataChannelListeners(channel, remotePeerId)
       channels[remotePeerId] = channel
