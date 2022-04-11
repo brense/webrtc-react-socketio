@@ -29,6 +29,7 @@ export type CandidatePayload = {
 
 export type SignalingChannel = {
   onConnect: Subject<string>
+  onDisconnect: Subject<unknown>
   onSignal: Subject<SignalPayload>
   onOffer: Subject<SessionDescriptionPayload>
   onAnswer: Subject<SessionDescriptionPayload>
@@ -41,6 +42,7 @@ export type SignalingChannel = {
 
 function createSocketIOSignalingChannel(socket: Socket): SignalingChannel {
   const onConnect = new Subject<string>()
+  const onDisconnect = new Subject()
   const onSignal = new Subject<SignalPayload>()
   const onOffer = new Subject<SessionDescriptionPayload>()
   const onAnswer = new Subject<SessionDescriptionPayload>()
@@ -57,12 +59,17 @@ function createSocketIOSignalingChannel(socket: Socket): SignalingChannel {
     socket.on('disconnected', payload => onDisconnected.next(payload))
   })
 
+  socket.on('disconnect', () => {
+    onDisconnect.next(null)
+  })
+
   if (!socket.connected) {
     socket.connect()
   }
 
   return {
     onConnect,
+    onDisconnect,
     onSignal,
     onOffer,
     onAnswer,

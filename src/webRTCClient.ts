@@ -6,6 +6,8 @@ function createClient(signalingChannelCreator: () => SignalingChannel) {
   let signalingChannel: SignalingChannel
   const peers: { [key: string]: RTCPeerConnection } = {}
   const channels: { [key: string]: RTCDataChannel } = {}
+  const onConnect = new Subject<string>()
+  const onDisconnect = new Subject()
   const onMessage = new Subject<MessageEvent>()
   const onTrack = new Subject<RTCTrackEvent>()
   const onChannelOpen = new Subject<string>()
@@ -17,11 +19,13 @@ function createClient(signalingChannelCreator: () => SignalingChannel) {
     signalingChannel = signalingChannelCreator()
     signalingChannel.onConnect.subscribe(peerId => {
       localPeerId = peerId
+      onConnect.next(localPeerId)
       signalingChannel.onSignal.subscribe(createOffer)
       signalingChannel.onOffer.subscribe(receiveOffer)
       signalingChannel.onAnswer.subscribe(receiveAnswer)
       signalingChannel.onCandidate.subscribe(receiveCandidate)
       signalingChannel.onDisconnected.subscribe(handlePeerDisconnected)
+      signalingChannel.onDisconnect.subscribe(() => onDisconnect.next(null))
     })
   }
 
@@ -147,11 +151,13 @@ function createClient(signalingChannelCreator: () => SignalingChannel) {
   return {
     connect,
     sendMessage,
-    onMessage: onMessage.subscribe,
-    onPeerConnected: onPeerConnected.subscribe,
-    onPeerDisconnected: onPeerDisconnected.subscribe,
-    onChannelOpen: onChannelOpen.subscribe,
-    onChannelClose: onChannelClose.subscribe
+    onConnect,
+    onDisconnect,
+    onMessage,
+    onPeerConnected,
+    onPeerDisconnected,
+    onChannelOpen,
+    onChannelClose
   }
 }
 
