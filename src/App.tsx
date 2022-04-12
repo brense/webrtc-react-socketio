@@ -22,22 +22,33 @@ function Messages({ name }: { name: string }) {
 }
 
 function App() {
-  const { isConnected, hasConnected, ...signalingChannel } = useSignalingChannel()
+  const [hasConnected, setHasConnected] = useState(false)
+  const { isConnected, ...signalingChannel } = useSignalingChannel()
   const [name, setName] = useState('')
 
   const handleConnect = useCallback((evt: FormEvent) => {
     evt.preventDefault()
     console.log('name', name)
     signalingChannel.connect()
+    setHasConnected(true)
   }, [signalingChannel, name])
 
+  const handleDisconnect = useCallback(() => {
+    signalingChannel.disconnect()
+    setHasConnected(false)
+  }, [signalingChannel])
+
   return <Box sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-    <Card component="form" onSubmit={handleConnect}>
+    <Card component="form" onSubmit={handleConnect} sx={{ minWidth: 420 }}>
       <AppBar position="static">
         <Toolbar>
           <Typography variant="body2">Server status:</Typography>
           {isConnected ? <Icon color="success">bolt</Icon> : <Icon color="disabled">power</Icon>}
           <Typography variant="body2" color={isConnected ? 'success' : 'textSecondary'}>{isConnected ? 'Connected' : 'Disconnected'}</Typography>
+          {isConnected && <>
+            <span style={{ flex: 1 }} />
+            <Button variant="contained" color="secondary" size="small" onClick={handleDisconnect}>Disconnect</Button>
+          </>}
         </Toolbar>
       </AppBar>
       {hasConnected ? <Messages name={name} /> : <>
@@ -48,6 +59,7 @@ function App() {
             label="Your name"
             value={name}
             onChange={e => setName(e.target.value)}
+            fullWidth
           />
         </CardContent>
         <CardActions sx={{ justifyContent: 'flex-end' }}>
