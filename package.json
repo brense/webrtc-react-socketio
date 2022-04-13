@@ -18,7 +18,7 @@
   },
   "scripts": {
     "start": "react-scripts start",
-    "start:server": "ts-node-dev --project ./tsconfig.server.json ./src/signalingServer.ts",
+    "start:server": "ts-node-dev --project ./tsconfig.server.json ./src/webrtc/signalingServer.ts",
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject"

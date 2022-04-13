@@ -1,7 +1,7 @@
 import React from 'react'
 import { createRoot } from 'react-dom/client'
 import reportWebVitals from './reportWebVitals'
-import { createWebRTCClient, createIoSignalingChanel, WebRTCClientProvider, SignalingChannelProvider } from './webRTC'
+import { createWebRTCClient, createIoSignalingChanel, WebRTCClientProvider, SignalingChannelProvider } from './webrtc'
 import { createTheme, CssBaseline, ThemeProvider } from '@mui/material'
 import { pink, teal } from '@mui/material/colors'
 import './index.css'
