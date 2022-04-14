@@ -2,21 +2,21 @@ import React, { useContext } from 'react'
 import { Subject } from 'rxjs'
 import { CandidatePayload, createIoSignalingChanel, RoomPayload, SessionDescriptionPayload } from './signalingChannel'
 
-const onMessage = new Subject<MessageEvent>()
+const onMessage = new Subject<{ [key: string]: string | number }>()
 const onTrack = new Subject<RTCTrackEvent>()
 const onChannelOpen = new Subject<string>()
 const onChannelClose = new Subject<string>()
 
 export function createWebRTCClient(signalingChannel: ReturnType<typeof createIoSignalingChanel>, configuration?: RTCConfiguration) {
-  const rooms: Array<{ name: string, connection: RTCPeerConnection, channel?: RTCDataChannel }> = []
+  const connections: Array<{ room: string, remotePeerId: string, connection: RTCPeerConnection, channel?: RTCDataChannel }> = []
 
   signalingChannel.onSessionDescription.subscribe(receiveSessionDescription)
   signalingChannel.onCandidate.subscribe(receiveCandidate)
   signalingChannel.onJoin.subscribe(sendOffer)
-  signalingChannel.onLeave.subscribe(closeRemoteChannel)
+  signalingChannel.onLeave.subscribe(closeConnection)
 
   async function sendOffer({ from: remotePeerId, room }: RoomPayload) {
-    const { connection, channel } = getPeerConnectionForRoom(room, async () => {
+    const { connection, channel } = getPeerConnection(room, remotePeerId, async () => {
       await connection.setLocalDescription(await connection.createOffer())
       console.log('send offer', remotePeerId, room, connection)
       signalingChannel.sendSessionDescription({
@@ -27,53 +27,37 @@ export function createWebRTCClient(signalingChannel: ReturnType<typeof createIoS
     })
     if (!channel) {
       console.log('create datachannel for room', room)
-      setDataChannelListeners(connection.createDataChannel(room), room)
+      setDataChannelListeners(connection.createDataChannel(room), room, remotePeerId)
     }
-  }
-
-  async function createBroadcast(room: string) {
-    getPeerConnectionForRoom(room)
-    signalingChannel.join({ room })
   }
 
   async function joinRoom(room: string, isExistingBroadcast?: boolean) {
-    createRoom(room, isExistingBroadcast)
     signalingChannel.join({ room })
   }
 
-  async function leaveRoom(room: string) {
-    const index = rooms.findIndex(({ name }) => name === room)
-    if (index >= 0) {
-      rooms[index].connection.close()
-      rooms.splice(index, 1)
-    }
+  async function leaveRoom(room: string, remotePeerId: string) {
     signalingChannel.leave({ room })
   }
 
-  async function createRoom(room: string, isExistingBroadcast = false) {
-    const { connection } = getPeerConnectionForRoom(room)
-    if (!isExistingBroadcast) {
-      const channel = connection.createDataChannel(room)
-      await connection.setLocalDescription(await connection.createOffer())
-      setDataChannelListeners(channel, room)
+  async function closeConnection({ from: remotePeerId, room }: Omit<RoomPayload, | 'room'> & { room?: string }) {
+    const index = connections.findIndex(c => c.room === room && c.remotePeerId === remotePeerId)
+    if (index >= 0) {
+      connections[index].connection.close()
+      connections[index].channel?.close()
+      connections.splice(index, 1)
     }
-    return connection
-  }
-
-  async function closeRemoteChannel({ from: remotePeerId, room }: Omit<RoomPayload, | 'room'> & { room?: string }) {
-    // TODO: close connection in case of a 1 to 1 call?
   }
 
   async function receiveSessionDescription({ room, sdp, from: remotePeerId }: SessionDescriptionPayload) {
-    const { connection } = getPeerConnectionForRoom(room)
+    const { connection } = getPeerConnection(room, remotePeerId)
     if (sdp?.type === 'offer') {
-      console.log('received offer', sdp)
+      console.log('received offer', room, remotePeerId, sdp)
       try {
         await connection.setRemoteDescription(sdp)
       } catch (e) {
         console.log('error', e)
       }
-      console.log('respond to offer', room, connection)
+      console.log('respond to offer', room, remotePeerId, connection)
       try {
         await connection.setLocalDescription(await connection.createAnswer())
       } catch (e) {
@@ -85,7 +69,7 @@ export function createWebRTCClient(signalingChannel: ReturnType<typeof createIoS
         to: remotePeerId
       })
     } else if (sdp?.type === 'answer') {
-      console.log('received answer', sdp)
+      console.log('received answer', room, remotePeerId, sdp)
       try {
         await connection.setRemoteDescription(sdp)
       } catch (e) {
@@ -96,9 +80,9 @@ export function createWebRTCClient(signalingChannel: ReturnType<typeof createIoS
     }
   }
 
-  async function receiveCandidate({ room, candidate }: CandidatePayload) {
-    console.log('received candidate', room, candidate)
-    const { connection } = getPeerConnectionForRoom(room)
+  async function receiveCandidate({ room, candidate, from: remotePeerId }: CandidatePayload) {
+    console.log('received candidate', room, remotePeerId, candidate)
+    const { connection } = getPeerConnection(room, remotePeerId)
     await connection.addIceCandidate(new RTCIceCandidate(candidate))
   }
 
@@ -113,41 +97,45 @@ export function createWebRTCClient(signalingChannel: ReturnType<typeof createIoS
     }
   }
 
-  function setDataChannelListeners(channel: RTCDataChannel, room: string) {
+  function setDataChannelListeners(channel: RTCDataChannel, room: string, remotePeerId: string) {
     if (channel.readyState !== 'closed') {
-      channel.onmessage = message => onMessage.next(message)
+      channel.onmessage = message => onMessage.next(JSON.parse(message.data))
       channel.onopen = () => onChannelOpen.next(room)
       channel.onclose = () => {
-        console.log('channel closed', room)
-        const index = rooms.findIndex(({ name }) => name === room)
+        console.log('channel closed', room, remotePeerId)
+        const index = connections.findIndex(c => c.room === room && c.remotePeerId === remotePeerId)
         if (index >= 0) {
-          rooms[index].connection.close()
-          rooms.splice(index, 1)
+          connections[index].connection.close()
+          connections.splice(index, 1)
         }
         onChannelClose.next(room)
       }
-      const index = rooms.findIndex(({ name }) => name === room)
-      rooms[index] = { ...rooms[index], channel }
-      console.log('received data channel', room, channel)
+      const index = connections.findIndex(c => c.room === room && c.remotePeerId === remotePeerId)
+      connections[index] = { ...connections[index], channel }
+      console.log('received data channel', room, remotePeerId, channel)
     }
   }
 
-  function getPeerConnectionForRoom(name: string, onNegotiationNeededCallback?: (event: Event) => void) {
-    const onNegotiationNeeded = subjectNegotiationNeededForRoom(name)
+  function getPeerConnection(room: string, remotePeerId: string, onNegotiationNeededCallback?: (event: Event) => void) {
+    const onNegotiationNeeded = getOnNegotationNeededSubjectForConnection(room, remotePeerId)
     onNegotiationNeededCallback && onNegotiationNeeded.subscribe(onNegotiationNeededCallback)
-    const existingRoom = rooms.find(room => room.name === name)
-    if (existingRoom) {
-      return existingRoom
+    const existingConnection = connections.find(c => c.room === room && c.remotePeerId === remotePeerId)
+    if (existingConnection) {
+      return existingConnection
     }
-    console.log(`create new connection for room "${name}"`)
+    console.log(`create new connection for room "${room}"`)
     const connection = new RTCPeerConnection(configuration)
-    connection.onicecandidate = event => onIceCandidate(event, name)
+    connection.onicecandidate = event => onIceCandidate(event, room)
     connection.onnegotiationneeded = event => onNegotiationNeeded.next(event)
-    connection.ondatachannel = event => setDataChannelListeners(event.channel, name)
+    connection.ondatachannel = event => setDataChannelListeners(event.channel, room, remotePeerId)
     connection.ontrack = track => onTrack.next(track)
     connection.oniceconnectionstatechange = event => console.log('ice state changed', event)
-    rooms.push({ name, connection })
-    return { name, connection }
+    connections.push({ room, remotePeerId, connection })
+    return { room, remotePeerId, connection }
+  }
+
+  function sendMessage(room: string, data: { [key: string]: string | number }) {
+    connections.filter(c => c.room === room).forEach(({ channel }) => channel?.send(JSON.stringify(data)))
   }
 
   return {
@@ -155,18 +143,18 @@ export function createWebRTCClient(signalingChannel: ReturnType<typeof createIoS
     onTrack,
     onChannelOpen,
     onChannelClose,
-    createBroadcast,
     joinRoom,
-    leaveRoom
+    leaveRoom,
+    sendMessage
   }
 }
 
-const roomNegotiationNeededSubjects: { [key: string]: Subject<Event> } = {}
-function subjectNegotiationNeededForRoom(room: string) {
-  if (!roomNegotiationNeededSubjects[room]) {
-    roomNegotiationNeededSubjects[room] = new Subject()
+const connectionOnNegotioationNeededSubjects: { [key: string]: Subject<Event> } = {}
+function getOnNegotationNeededSubjectForConnection(room: string, remotePeerId: string) {
+  if (!connectionOnNegotioationNeededSubjects[`${room}|${remotePeerId}`]) {
+    connectionOnNegotioationNeededSubjects[`${room}|${remotePeerId}`] = new Subject()
   }
-  return roomNegotiationNeededSubjects[room]
+  return connectionOnNegotioationNeededSubjects[`${room}|${remotePeerId}`]
 }
 
 export type WebRTCClient = ReturnType<typeof createWebRTCClient>

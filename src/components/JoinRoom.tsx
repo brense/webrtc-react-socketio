@@ -8,7 +8,7 @@ function JoinRoom({ onJoin }: { onJoin: (name: string) => void }) {
   }, [onJoin])
 
   return <Card component="form" onSubmit={handleConnect}>
-    <CardHeader title="Join a room" subheader="If it doesn't exist yet, we will create it for you" />
+    <CardHeader title="Join a room" subheader="If it doesn't exist yet it will be created" />
     <CardContent>
       <TextField
         variant="filled"

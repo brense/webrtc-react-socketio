@@ -1,36 +1,24 @@
-import { AppBar, Box, Button, Icon, List, ListItem, ListItemText, Toolbar, Typography } from '@mui/material'
-import { useCallback, useState } from 'react'
+import { AppBar, Box, Button, Icon, TextField, Toolbar, Typography } from '@mui/material'
+import { FormEvent, useCallback, useState } from 'react'
 import JoinRoom from './components/JoinRoom'
+import Room from './components/Room'
 import { useSignalingChannel, useWebRTC } from './webrtc'
 
-function Messages({ name }: { name: string }) {
-  return <Box sx={{ display: 'flex' }}>
-    <List sx={{ flex: 1 }} dense>
-      <ListItem>
-        <ListItemText primary="messages..." />
-      </ListItem>
-    </List>
-    <List>
-      <ListItem>
-        <ListItemText primary={name} />
-      </ListItem>
-    </List>
-  </Box>
-}
-
 function App() {
-  const { isConnected, ...signalingChannel } = useSignalingChannel()
+  const [name, setName] = useState('')
   const [hasConnected, setHasConnected] = useState(false)
-  const webRTCClient = useWebRTC()
   const [room, setRoom] = useState('')
+  const { isConnected, ...signalingChannel } = useSignalingChannel()
+  const webRTCClient = useWebRTC()
 
   const handleJoin = useCallback((room: string) => {
     setRoom(room)
     signalingChannel.connect()
-    webRTCClient.createBroadcast(room)
+    webRTCClient.joinRoom(room)
   }, [signalingChannel, webRTCClient])
 
-  const handleConnect = useCallback(() => {
+  const handleConnect = useCallback((event: FormEvent) => {
+    event.preventDefault()
     setHasConnected(true)
     signalingChannel.connect()
   }, [signalingChannel])
@@ -43,7 +31,11 @@ function App() {
   return <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
     <AppBar position="static">
       <Toolbar sx={{ justifyContent: 'space-between' }}>
-        {room !== '' ? <Typography variant="h5">Room: {room}</Typography> : <span />}
+        {name !== '' && hasConnected ? <Box sx={{ display: 'flex' }}>
+          <Typography variant="h5">Welcome {name}</Typography>
+          &nbsp;&nbsp;
+          <Button variant="contained" size="small" color="secondary" onClick={handleDisconnect} disabled={!isConnected}>Disconnect</Button>
+        </Box> : <span />}
         <Box sx={{ display: 'flex', flexWrap: 'nowrap' }}>
           <Typography variant="body2">Server status:</Typography>
           {isConnected ? <Icon color="success">bolt</Icon> : <Icon color="disabled">power</Icon>}
@@ -51,10 +43,11 @@ function App() {
         </Box>
       </Toolbar>
     </AppBar>
-    <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      {room !== '' ? <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-        <Messages name={room} />
-      </Box> : hasConnected ? <JoinRoom onJoin={handleJoin} /> : <Button variant="contained" size="large" onClick={handleConnect} disabled={hasConnected}>Connect</Button>}
+    <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+      {room !== '' ? <Room room={room} name={name} /> : hasConnected ? <JoinRoom onJoin={handleJoin} /> : <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }} component="form" onSubmit={handleConnect}>
+        <TextField variant="filled" margin="normal" label="Your name" value={name} onChange={e => setName(e.target.value)} />
+        <Button variant="contained" size="large" type="submit" disabled={hasConnected || name === ''}>Connect</Button>
+      </Box>}
     </Box>
   </Box>
 }
