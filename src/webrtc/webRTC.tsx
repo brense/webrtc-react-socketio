@@ -99,7 +99,7 @@ export function createWebRTCClient(signalingChannel: ReturnType<typeof createIoS
 
   function setDataChannelListeners(channel: RTCDataChannel, room: string, remotePeerId: string) {
     if (channel.readyState !== 'closed') {
-      channel.onmessage = message => onMessage.next(JSON.parse(message.data))
+      channel.onmessage = message => onMessage.next(JSON.parse(message.data, dateReviver))
       channel.onopen = () => onChannelOpen.next(room)
       channel.onclose = () => {
         console.log('channel closed', room, remotePeerId)
@@ -134,7 +134,7 @@ export function createWebRTCClient(signalingChannel: ReturnType<typeof createIoS
     return { room, remotePeerId, connection }
   }
 
-  function sendMessage(room: string, data: { [key: string]: string | number }) {
+  function sendMessage(room: string, data: { [key: string]: any }) {
     connections.filter(c => c.room === room).forEach(({ channel }) => channel?.send(JSON.stringify(data)))
   }
 
@@ -147,6 +147,13 @@ export function createWebRTCClient(signalingChannel: ReturnType<typeof createIoS
     leaveRoom,
     sendMessage
   }
+}
+
+function dateReviver(name: string, value: string) {
+  if (typeof value === "string" && /^\d\d\d\d-\d\d-\d\dT\d\d:\d\d:\d\d.\d\d\dZ$/.test(value)) {
+    return new Date(value)
+  }
+  return value
 }
 
 const connectionOnNegotioationNeededSubjects: { [key: string]: Subject<Event> } = {}

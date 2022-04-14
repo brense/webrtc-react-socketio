@@ -4,8 +4,12 @@ import reportWebVitals from './reportWebVitals'
 import { createWebRTCClient, createIoSignalingChanel, WebRTCClientProvider, SignalingChannelProvider } from './webrtc'
 import { createTheme, CssBaseline, ThemeProvider } from '@mui/material'
 import { pink, teal } from '@mui/material/colors'
+import moment from 'moment'
+import 'moment/locale/nl'
 import './index.css'
 import App from './App'
+
+moment.locale('nl')
 
 const port = window.location.port || (window.location.protocol === 'https:' ? 443 : 80)
 const socketUrl = `${window.location.protocol}//${window.location.hostname}:${port}`
