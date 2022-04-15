@@ -16,6 +16,7 @@ function JoinRoom({ onJoin }: { onJoin: (name: string) => void }) {
         label="Room name"
         name="name"
         fullWidth
+        autoFocus
       />
     </CardContent>
     <CardActions sx={{ justifyContent: 'flex-end' }}>

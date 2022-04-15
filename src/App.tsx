@@ -45,7 +45,7 @@ function App() {
     </AppBar>
     <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
       {room !== '' ? <Room room={room} name={name} /> : hasConnected ? <JoinRoom onJoin={handleJoin} /> : <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }} component="form" onSubmit={handleConnect}>
-        <TextField variant="filled" margin="normal" label="Your name" value={name} onChange={e => setName(e.target.value)} />
+        <TextField variant="filled" margin="normal" label="Your name" value={name} onChange={e => setName(e.target.value)} autoFocus />
         <Button variant="contained" size="large" type="submit" disabled={hasConnected || name === ''}>Connect</Button>
       </Box>}
     </Box>

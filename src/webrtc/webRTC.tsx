@@ -8,7 +8,7 @@ const onChannelOpen = new Subject<string>()
 const onChannelClose = new Subject<string>()
 
 export function createWebRTCClient(signalingChannel: ReturnType<typeof createIoSignalingChanel>, configuration?: RTCConfiguration) {
-  const connections: Array<{ room: string, remotePeerId: string, connection: RTCPeerConnection, channel?: RTCDataChannel }> = []
+  const connections: Array<{ room: string, remotePeerId: string, connection: RTCPeerConnection, channel?: RTCDataChannel, sender?: RTCRtpSender }> = []
 
   signalingChannel.onSessionDescription.subscribe(receiveSessionDescription)
   signalingChannel.onCandidate.subscribe(receiveCandidate)
@@ -31,11 +31,11 @@ export function createWebRTCClient(signalingChannel: ReturnType<typeof createIoS
     }
   }
 
-  async function joinRoom(room: string, isExistingBroadcast?: boolean) {
+  async function joinRoom(room: string) {
     signalingChannel.join({ room })
   }
 
-  async function leaveRoom(room: string, remotePeerId: string) {
+  async function leaveRoom(room: string) {
     signalingChannel.leave({ room })
   }
 
@@ -138,6 +138,22 @@ export function createWebRTCClient(signalingChannel: ReturnType<typeof createIoS
     connections.filter(c => c.room === room).forEach(({ channel }) => channel?.send(JSON.stringify(data)))
   }
 
+  function addTrack(room: string, track: MediaStreamTrack, ...streams: MediaStream[]) {
+    connections.filter(c => c.room === room).forEach(({ connection }, i) => {
+      console.log('add track', track)
+      connections[i].sender = connection.addTrack(track, ...streams)
+    })
+  }
+
+  function removeTrack(room: string) {
+    connections.filter(c => c.room === room).forEach(({ connection, sender }, i) => {
+      if (sender) {
+        connection.removeTrack(sender)
+        connections[i].sender = undefined
+      }
+    })
+  }
+
   return {
     onMessage,
     onTrack,
@@ -145,7 +161,9 @@ export function createWebRTCClient(signalingChannel: ReturnType<typeof createIoS
     onChannelClose,
     joinRoom,
     leaveRoom,
-    sendMessage
+    sendMessage,
+    addTrack,
+    removeTrack
   }
 }
 
