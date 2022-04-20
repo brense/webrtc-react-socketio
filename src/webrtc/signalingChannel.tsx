@@ -23,9 +23,11 @@ export type CandidatePayload = {
 export type RoomPayload = {
   from: string
   room: string
+  isBroadcast?: boolean // the creator of the room is broadcasting and peers should only connect to the creator and not other peers in the room
 }
 
 const onConnect = new Subject<string>()
+const onRooms = new Subject<Array<{ room: string, creator: string, isBroadcast: boolean }>>()
 const onDisconnect = new Subject()
 const onClient = new Subject<ClientPayload>()
 const onJoin = new Subject<RoomPayload>()
@@ -40,14 +42,9 @@ export function createIoSignalingChanel(uri: string, opts?: Partial<ManagerOptio
     onConnect.next(socket.id)
   })
 
-  /*
-    - a room is either a broadcast or a call
-    - when a peer joins a broadcast it doenst add any datachannels or tracks
-    - when a peer joins a call it adds its own datachannels and tracks
-  */
-
+  socket.on('rooms', payload => onRooms.next(payload)) // client has received the list of rooms from the socket server
   socket.on('client', payload => onClient.next(payload)) // a new client has connected to the websocket
-  socket.on('join', payload => onJoin.next(payload)) // a peer wants to join a room or has created one
+  socket.on('join', ({ isBroadcast = false, ...rest }: RoomPayload) => onJoin.next({ isBroadcast, ...rest })) // a peer wants to join a room or has created one
   socket.on('leave', payload => onLeave.next(payload)) // a peer has left a room or has disconnected
   socket.on('desc', payload => onSessionDescription.next(payload)) // receive a session description from another peer
   socket.on('candidate', payload => onCandidate.next(payload)) // receive an icecandidate from another peer

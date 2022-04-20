@@ -31,6 +31,15 @@ export function createWebRTCClient(signalingChannel: ReturnType<typeof createIoS
     }
   }
 
+  async function broadcast(room:string, track: MediaStreamTrack, ...streams: MediaStream[]){
+    signalingChannel.join({ room, isBroadcast:true })
+    signalingChannel.onJoin.subscribe(payload => {
+      if(payload.room === room){
+        // create peer connection for payload.from and add tracks..
+      }
+    })
+  }
+
   async function joinRoom(room: string) {
     signalingChannel.join({ room })
   }

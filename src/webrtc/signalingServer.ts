@@ -3,7 +3,7 @@
 import yargs from 'yargs'
 import express from 'express'
 import http from 'http'
-import { Server as WebSocketServer, Socket } from 'socket.io'
+import { Server as WebSocketServer } from 'socket.io'
 
 // parse process args
 const { port } = yargs.options({
@@ -19,25 +19,45 @@ const app = express()
 const httpServer = http.createServer(app)
 const websocket = new WebSocketServer(httpServer)
 
+const rooms: Array<{ room: string, creator: string, isBroadcast: boolean }> = []
+
 // socket listeners (https://socket.io/docs/v3/emit-cheatsheet/)
 websocket.on('connection', socket => {
   console.log(`client ${socket.id} connected`)
   socket.broadcast.emit('client', { from: socket.id })
+  socket.emit('rooms', rooms)
 
+  // room join/leave events
   socket.on('join', payload => {
+    const roomExists = !!websocket.sockets.adapter.rooms.get(payload.room)
+    if (!roomExists) {
+      rooms.push({ room: payload.room, creator: socket.id, isBroadcast: payload.isBroadcast || false })
+    }
     socket.join(payload.room)
-    console.log('join room', payload.room, socket.id)
+    console.log(`client ${socket.id} joined room ${payload.room}`)
     socket.broadcast.to(payload.room).emit('join', { ...payload, from: socket.id })
   })
   socket.on('leave', payload => {
     socket.leave(payload.room)
     socket.broadcast.to(payload.room).emit('leave', { ...payload, from: socket.id })
   })
+
+  // webrtc signaling events
   socket.on('desc', payload => socket.broadcast.to(payload.to).emit('desc', { ...payload, from: socket.id }))
   socket.on('candidate', payload => socket.broadcast.to(payload.to).emit('candidate', { ...payload, from: socket.id }))
 
   socket.on('disconnecting', () => {
-    socket.rooms.forEach(room => socket.broadcast.to(room).emit('leave', { from: socket.id, room }))
+    console.log(socket.rooms)
+    socket.rooms.forEach(room => {
+      // detect abandoned rooms and remove them
+      const r = websocket.sockets.adapter.rooms.get(room)
+      const rIndex = rooms.findIndex(i => i.room === room)
+      if (r?.size === 1 && r?.has(socket.id) && rIndex >= 0) {
+        console.log(`room ${room} is removed because it is empty`)
+        rooms.splice(rIndex, 1)
+      }
+      socket.broadcast.to(room).emit('leave', { from: socket.id, room })
+    })
   })
 
   socket.on('disconnect', () => {
