@@ -1,22 +1,42 @@
 import React from 'react'
 import { createRoot } from 'react-dom/client'
-import './index.css'
-import App from './App'
 import reportWebVitals from './reportWebVitals'
-import io from 'socket.io-client'
-import createSocketIOSignalingChannel from './signalingChannel'
-import createWebRTCClient from './webRTCClient'
+import { createWebRTCClient, createIoSignalingChanel, WebRTCClientProvider, SignalingChannelProvider } from './webrtc'
 import { createTheme, CssBaseline, ThemeProvider } from '@mui/material'
 import { pink, teal } from '@mui/material/colors'
-import { WebRTCClientProvider } from './useWebRTC'
+import moment from 'moment'
+import 'moment/locale/nl'
+import './index.css'
+import App from './App'
+
+moment.locale('nl')
+
+const iceServers = [
+  {
+    urls: "stun:openrelay.metered.ca:80",
+  },
+  {
+    urls: "turn:openrelay.metered.ca:80",
+    username: "openrelayproject",
+    credential: "openrelayproject",
+  },
+  {
+    urls: "turn:openrelay.metered.ca:443",
+    username: "openrelayproject",
+    credential: "openrelayproject",
+  },
+  {
+    urls: "turn:openrelay.metered.ca:443?transport=tcp",
+    username: "openrelayproject",
+    credential: "openrelayproject",
+  },
+]
 
 const port = window.location.port || (window.location.protocol === 'https:' ? 443 : 80)
 const socketUrl = `${window.location.protocol}//${window.location.hostname}:${port}`
-const socket = io(socketUrl, { autoConnect: false })
 
-const webRTCClient = createWebRTCClient(() => {
-  return createSocketIOSignalingChannel(socket)
-})
+const signalingChannel = createIoSignalingChanel(socketUrl, { autoConnect: false })
+const webRTCClient = createWebRTCClient({ signalingChannel, iceServers })
 
 const theme = createTheme({
   palette: {
@@ -28,12 +48,14 @@ const theme = createTheme({
 
 const root = createRoot(document.getElementById('root') as HTMLElement)
 root.render(<React.StrictMode>
-  <WebRTCClientProvider client={webRTCClient}>
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
-      <App />
-    </ThemeProvider>
-  </WebRTCClientProvider>
+  <SignalingChannelProvider signalingChannel={signalingChannel}>
+    <WebRTCClientProvider client={webRTCClient}>
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <App />
+      </ThemeProvider>
+    </WebRTCClientProvider>
+  </SignalingChannelProvider>
 </React.StrictMode>)
 
 // If you want to start measuring performance in your app, pass a function
