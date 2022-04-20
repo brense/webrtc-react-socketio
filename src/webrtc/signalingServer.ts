@@ -9,12 +9,12 @@ import { Server as WebSocketServer } from 'socket.io'
 
 // parse process args
 const { port } = yargs.options({
-  'port': {
-    alias: 'p',
-    type: 'number',
-    default: 3001
-  }
-}).argv
+  port: {
+    alias: "p",
+    type: "number",
+    default: parseInt(process.env.PORT || '3001'),
+  },
+}).argv;
 
 // prepare websocket server
 const app = express()
