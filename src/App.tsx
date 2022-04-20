@@ -1,5 +1,5 @@
 import { AppBar, Box, Button, Icon, TextField, Toolbar, Typography } from '@mui/material'
-import { FormEvent, useCallback, useState } from 'react'
+import { FormEvent, useCallback, useEffect, useState } from 'react'
 import JoinRoom from './components/JoinRoom'
 import Room from './components/Room'
 import { useSignalingChannel, useWebRTC } from './webrtc'
@@ -10,6 +10,10 @@ function App() {
   const [room, setRoom] = useState('')
   const { isConnected, ...signalingChannel } = useSignalingChannel()
   const webRTCClient = useWebRTC()
+
+  useEffect(() => {
+    webRTCClient.setIdentifier(name)
+  }, [name, webRTCClient])
 
   const handleJoin = useCallback((room: string) => {
     setRoom(room)

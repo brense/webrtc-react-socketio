@@ -4,27 +4,19 @@ import { CandidatePayload, createIoSignalingChanel, RoomPayload, SessionDescript
 
 const onMessage = new Subject<{ [key: string]: string | number }>()
 const onTrack = new Subject<RTCTrackEvent>()
-const onChannelOpen = new Subject<string>()
-const onChannelClose = new Subject<string>()
+const onChannelOpen = new Subject<{ remotePeerId: string, room: string }>()
+const onChannelClose = new Subject<{ remotePeerId: string, room: string }>()
 
 export function createWebRTCClient({ signalingChannel, ...configuration }: RTCConfiguration & { signalingChannel: ReturnType<typeof createIoSignalingChanel> }) {
+  let identifier = 'peer'
   const connections: Array<{ room: string, remotePeerId: string, connection: RTCPeerConnection, channel?: RTCDataChannel, sender?: RTCRtpSender }> = []
 
   signalingChannel.onSessionDescription.subscribe(receiveSessionDescription)
   signalingChannel.onCandidate.subscribe(receiveCandidate)
-  // signalingChannel.onJoin.subscribe(sendOffer)
   signalingChannel.onLeave.subscribe(closeConnection)
 
   async function sendOffer({ from: remotePeerId, room }: RoomPayload) {
-    const { connection, channel } = getPeerConnection(room, remotePeerId, async () => {
-      await connection.setLocalDescription(await connection.createOffer())
-      console.log('send offer', remotePeerId, room, connection)
-      signalingChannel.sendSessionDescription({
-        sdp: connection.localDescription,
-        room,
-        to: remotePeerId
-      })
-    })
+    const { connection, channel } = getPeerConnection(room, remotePeerId)
     if (!channel) {
       console.log('create datachannel for room', room)
       setDataChannelListeners(connection.createDataChannel(room), room, remotePeerId)
@@ -123,7 +115,10 @@ export function createWebRTCClient({ signalingChannel, ...configuration }: RTCCo
   function setDataChannelListeners(channel: RTCDataChannel, room: string, remotePeerId: string) {
     if (channel.readyState !== 'closed') {
       channel.onmessage = message => onMessage.next(JSON.parse(message.data, dateReviver))
-      channel.onopen = () => onChannelOpen.next(room)
+      channel.onopen = () => {
+        onChannelOpen.next({ remotePeerId, room })
+        sendMessage(room, { name: 'System', message: `${identifier || 'peer'} has joined`, date: new Date() })
+      }
       channel.onclose = () => {
         console.log('channel closed', room, remotePeerId)
         const index = connections.findIndex(c => c.room === room && c.remotePeerId === remotePeerId)
@@ -131,7 +126,8 @@ export function createWebRTCClient({ signalingChannel, ...configuration }: RTCCo
           connections[index].connection.close()
           connections.splice(index, 1)
         }
-        onChannelClose.next(room)
+        onChannelClose.next({ remotePeerId, room })
+        sendMessage(room, { name: 'System', message: `${identifier || 'peer'} has left`, date: new Date() })
       }
       const index = connections.findIndex(c => c.room === room && c.remotePeerId === remotePeerId)
       connections[index] = { ...connections[index], channel }
@@ -139,9 +135,7 @@ export function createWebRTCClient({ signalingChannel, ...configuration }: RTCCo
     }
   }
 
-  function getPeerConnection(room: string, remotePeerId: string, onNegotiationNeededCallback?: (event: Event) => void) {
-    const onNegotiationNeeded = getOnNegotationNeededSubjectForConnection(room, remotePeerId)
-    onNegotiationNeededCallback && onNegotiationNeeded.subscribe(onNegotiationNeededCallback)
+  function getPeerConnection(room: string, remotePeerId: string) {
     const existingConnection = connections.find(c => c.room === room && c.remotePeerId === remotePeerId)
     if (existingConnection) {
       return existingConnection
@@ -149,7 +143,15 @@ export function createWebRTCClient({ signalingChannel, ...configuration }: RTCCo
     console.log(`create new connection for room "${room}"`)
     const connection = new RTCPeerConnection(configuration)
     connection.onicecandidate = event => onIceCandidate(event, room)
-    connection.onnegotiationneeded = event => onNegotiationNeeded.next(event)
+    connection.onnegotiationneeded = async event => {
+      await connection.setLocalDescription(await connection.createOffer())
+      console.log('send offer', remotePeerId, room, connection)
+      signalingChannel.sendSessionDescription({
+        sdp: connection.localDescription,
+        room,
+        to: remotePeerId
+      })
+    }
     connection.ondatachannel = event => setDataChannelListeners(event.channel, room, remotePeerId)
     connection.ontrack = track => onTrack.next(track)
     connection.oniceconnectionstatechange = event => console.log('ice state changed', event)
@@ -182,6 +184,7 @@ export function createWebRTCClient({ signalingChannel, ...configuration }: RTCCo
     onTrack,
     onChannelOpen,
     onChannelClose,
+    setIdentifier: (id: string) => identifier = id,
     broadcast,
     call,
     joinRoom,
@@ -197,14 +200,6 @@ function dateReviver(name: string, value: string) {
     return new Date(value)
   }
   return value
-}
-
-const connectionOnNegotioationNeededSubjects: { [key: string]: Subject<Event> } = {}
-function getOnNegotationNeededSubjectForConnection(room: string, remotePeerId: string) {
-  if (!connectionOnNegotioationNeededSubjects[`${room}|${remotePeerId}`]) {
-    connectionOnNegotioationNeededSubjects[`${room}|${remotePeerId}`] = new Subject()
-  }
-  return connectionOnNegotioationNeededSubjects[`${room}|${remotePeerId}`]
 }
 
 export type WebRTCClient = ReturnType<typeof createWebRTCClient>

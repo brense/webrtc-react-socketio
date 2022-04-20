@@ -9,7 +9,7 @@ function Room({ name, room }: { name: string, room: string }) {
   const [hasAudio, setHasAudio] = useState(false)
   const [isRecording, setIsRecording] = useState(false)
   const [messages, setMessages] = useState<Array<{ name: string, message: string, date: Date }>>([])
-  const { onMessage, sendMessage, onTrack, addTrack, removeTrack } = useWebRTC()
+  const { onMessage, onChannelOpen, onChannelClose, sendMessage, onTrack, addTrack, removeTrack } = useWebRTC()
   const audioRef = useRef<HTMLAudioElement>(null)
   const streamRef = useRef<MediaStream>()
 
@@ -25,7 +25,7 @@ function Room({ name, room }: { name: string, room: string }) {
       }
     }))
     return () => subscribers.forEach(subscriber => subscriber.unsubscribe())
-  }, [onMessage, onTrack])
+  }, [onMessage, onChannelOpen, onChannelClose, onTrack, room])
 
   const toggleAudio = useCallback(async () => {
     if (streamRef.current) {

@@ -69,7 +69,6 @@ websocket.on('connection', socket => {
   socket.on('candidate', payload => socket.broadcast.to(payload.to).emit('candidate', { ...payload, from: socket.id }))
 
   socket.on('disconnecting', () => {
-    console.log(socket.rooms)
     socket.rooms.forEach(room => {
       // detect abandoned rooms and remove them
       const r = websocket.sockets.adapter.rooms.get(room)
