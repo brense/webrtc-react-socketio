@@ -14,7 +14,7 @@ function App() {
   const handleJoin = useCallback((room: string) => {
     setRoom(room)
     signalingChannel.connect()
-    webRTCClient.joinRoom(room)
+    webRTCClient.call(room)
   }, [signalingChannel, webRTCClient])
 
   const handleConnect = useCallback((event: FormEvent) => {

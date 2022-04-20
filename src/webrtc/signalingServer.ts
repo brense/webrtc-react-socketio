@@ -3,6 +3,8 @@
 import yargs from 'yargs'
 import express from 'express'
 import http from 'http'
+import path from 'path'
+import fs from 'fs'
 import { Server as WebSocketServer } from 'socket.io'
 
 // parse process args
@@ -18,6 +20,26 @@ const { port } = yargs.options({
 const app = express()
 const httpServer = http.createServer(app)
 const websocket = new WebSocketServer(httpServer)
+
+// serve static files
+app.use('/static', express.static(path.resolve(__dirname, 'static')))
+app.use(express.json())
+app.use(express.urlencoded({ extended: false }))
+
+app.get(/^(?!\/socket.io).*$/, (req, res) => {
+  console.log('http request')
+  if (path.extname(req.path) !== '') {
+    const resolvedPath = path.resolve(__dirname, `.${req.path}`)
+    if (fs.existsSync(resolvedPath)) {
+      res.sendFile(resolvedPath)
+    } else {
+      res.sendStatus(404)
+    }
+  } else {
+    const index = path.resolve(__dirname, 'index.html')
+    res.sendFile(index)
+  }
+})
 
 const rooms: Array<{ room: string, creator: string, isBroadcast: boolean }> = []
 

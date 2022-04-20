@@ -65,9 +65,9 @@ export function createIoSignalingChanel(uri: string, opts?: Partial<ManagerOptio
     disconnect: () => socket.close(),
     join: (payload: Omit<RoomPayload, 'from'>) => {
       socket.emit('join', payload)
-      const onJoinSubject = new Subject<RoomPayload>()
-      socket.on('join', ({ isBroadcast = false, ...rest }: RoomPayload) => rest.room === payload.room && onJoinSubject.next({ isBroadcast, ...rest }))
-      return onJoinSubject
+      const onNewPeer = new Subject<RoomPayload>()
+      socket.on('join', ({ isBroadcast = false, ...rest }: RoomPayload) => rest.room === payload.room && onNewPeer.next({ isBroadcast, ...rest }))
+      return { onNewPeer }
     },
     leave: (payload: Omit<RoomPayload, 'from'>) => socket.emit('leave', payload),
     sendSessionDescription: (sessionDescription: Omit<SessionDescriptionPayload, 'from'>) => socket.emit('desc', sessionDescription),

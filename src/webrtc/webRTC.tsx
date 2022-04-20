@@ -7,7 +7,7 @@ const onTrack = new Subject<RTCTrackEvent>()
 const onChannelOpen = new Subject<string>()
 const onChannelClose = new Subject<string>()
 
-export function createWebRTCClient(signalingChannel: ReturnType<typeof createIoSignalingChanel>, configuration?: RTCConfiguration) {
+export function createWebRTCClient({ signalingChannel, ...configuration }: RTCConfiguration & { signalingChannel: ReturnType<typeof createIoSignalingChanel> }) {
   const connections: Array<{ room: string, remotePeerId: string, connection: RTCPeerConnection, channel?: RTCDataChannel, sender?: RTCRtpSender }> = []
 
   signalingChannel.onSessionDescription.subscribe(receiveSessionDescription)
@@ -15,7 +15,7 @@ export function createWebRTCClient(signalingChannel: ReturnType<typeof createIoS
   // signalingChannel.onJoin.subscribe(sendOffer)
   signalingChannel.onLeave.subscribe(closeConnection)
 
-  async function sendOffer({ from: remotePeerId, room }: RoomPayload, track: MediaStreamTrack, ...streams: MediaStream[]) {
+  async function sendOffer({ from: remotePeerId, room }: RoomPayload) {
     const { connection, channel } = getPeerConnection(room, remotePeerId, async () => {
       await connection.setLocalDescription(await connection.createOffer())
       console.log('send offer', remotePeerId, room, connection)
@@ -25,26 +25,37 @@ export function createWebRTCClient(signalingChannel: ReturnType<typeof createIoS
         to: remotePeerId
       })
     })
-    // TODO: if !track, add track
     if (!channel) {
       console.log('create datachannel for room', room)
       setDataChannelListeners(connection.createDataChannel(room), room, remotePeerId)
     }
   }
 
-  async function broadcast(room:string, track: MediaStreamTrack, ...streams: MediaStream[]){
-    const onJoinRoom = signalingChannel.join({ room, isBroadcast:true })
-    onJoinRoom.subscribe(payload => sendOffer(payload, track, ...streams))
+  async function broadcast(room: string) {
+    return joinRoom(room, { isPassive: false, isBroadcast: true })
   }
 
-  async function call(room:string, track: MediaStreamTrack, ...streams: MediaStream[]){
-    const onJoinRoom = signalingChannel.join({ room })
-    onJoinRoom.subscribe(payload => sendOffer(payload, track, ...streams))
+  async function call(room: string) {
+    return joinRoom(room, { isPassive: false, isBroadcast: false })
   }
 
-  // silent join, dont listen for other peers to join
-  async function joinRoom(room: string) {
-    signalingChannel.join({ room })
+  async function joinRoom(room: string, options?: { isPassive?: boolean, isBroadcast?: boolean }) {
+    const { isPassive = true, isBroadcast = false } = options || {}
+    const { onNewPeer } = signalingChannel.join({ room, isBroadcast })
+    const leave = () => signalingChannel.leave({ room })
+    if (!isPassive) {
+      const subscription = onNewPeer.subscribe(sendOffer)
+      return {
+        leave: () => {
+          subscription.unsubscribe()
+          leave()
+        },
+        sendMessage: (data: { [key: string]: any; }) => sendMessage(room, data),
+        addTrack: (track: MediaStreamTrack, ...streams: MediaStream[]) => addTrack(room, track, ...streams),
+        remoteTrack: () => removeTrack(room)
+      }
+    }
+    return { leave }
   }
 
   async function leaveRoom(room: string) {
@@ -171,6 +182,8 @@ export function createWebRTCClient(signalingChannel: ReturnType<typeof createIoS
     onTrack,
     onChannelOpen,
     onChannelClose,
+    broadcast,
+    call,
     joinRoom,
     leaveRoom,
     sendMessage,

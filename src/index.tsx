@@ -11,11 +11,32 @@ import App from './App'
 
 moment.locale('nl')
 
+const iceServers = [
+  {
+    urls: "stun:openrelay.metered.ca:80",
+  },
+  {
+    urls: "turn:openrelay.metered.ca:80",
+    username: "openrelayproject",
+    credential: "openrelayproject",
+  },
+  {
+    urls: "turn:openrelay.metered.ca:443",
+    username: "openrelayproject",
+    credential: "openrelayproject",
+  },
+  {
+    urls: "turn:openrelay.metered.ca:443?transport=tcp",
+    username: "openrelayproject",
+    credential: "openrelayproject",
+  },
+]
+
 const port = window.location.port || (window.location.protocol === 'https:' ? 443 : 80)
 const socketUrl = `${window.location.protocol}//${window.location.hostname}:${port}`
 
 const signalingChannel = createIoSignalingChanel(socketUrl, { autoConnect: false })
-const webRTCClient = createWebRTCClient(signalingChannel)
+const webRTCClient = createWebRTCClient({ signalingChannel, iceServers })
 
 const theme = createTheme({
   palette: {
