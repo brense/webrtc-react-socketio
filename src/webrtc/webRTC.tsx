@@ -12,10 +12,10 @@ export function createWebRTCClient(signalingChannel: ReturnType<typeof createIoS
 
   signalingChannel.onSessionDescription.subscribe(receiveSessionDescription)
   signalingChannel.onCandidate.subscribe(receiveCandidate)
-  signalingChannel.onJoin.subscribe(sendOffer)
+  // signalingChannel.onJoin.subscribe(sendOffer)
   signalingChannel.onLeave.subscribe(closeConnection)
 
-  async function sendOffer({ from: remotePeerId, room }: RoomPayload) {
+  async function sendOffer({ from: remotePeerId, room }: RoomPayload, track: MediaStreamTrack, ...streams: MediaStream[]) {
     const { connection, channel } = getPeerConnection(room, remotePeerId, async () => {
       await connection.setLocalDescription(await connection.createOffer())
       console.log('send offer', remotePeerId, room, connection)
@@ -25,6 +25,7 @@ export function createWebRTCClient(signalingChannel: ReturnType<typeof createIoS
         to: remotePeerId
       })
     })
+    // TODO: if !track, add track
     if (!channel) {
       console.log('create datachannel for room', room)
       setDataChannelListeners(connection.createDataChannel(room), room, remotePeerId)
@@ -32,14 +33,16 @@ export function createWebRTCClient(signalingChannel: ReturnType<typeof createIoS
   }
 
   async function broadcast(room:string, track: MediaStreamTrack, ...streams: MediaStream[]){
-    signalingChannel.join({ room, isBroadcast:true })
-    signalingChannel.onJoin.subscribe(payload => {
-      if(payload.room === room){
-        // create peer connection for payload.from and add tracks..
-      }
-    })
+    const onJoinRoom = signalingChannel.join({ room, isBroadcast:true })
+    onJoinRoom.subscribe(payload => sendOffer(payload, track, ...streams))
   }
 
+  async function call(room:string, track: MediaStreamTrack, ...streams: MediaStream[]){
+    const onJoinRoom = signalingChannel.join({ room })
+    onJoinRoom.subscribe(payload => sendOffer(payload, track, ...streams))
+  }
+
+  // silent join, dont listen for other peers to join
   async function joinRoom(room: string) {
     signalingChannel.join({ room })
   }
