@@ -21,8 +21,8 @@
     "start": "react-scripts start",
     "start:server": "ts-node-dev --project ./tsconfig.server.json ./src/webrtc/signalingServer.ts",
     "build:app": "react-scripts build",
-    "build": "rimraf dist && rimraf build && tsc --p tsconfig.server.json && npm run build:app && copyfiles -u 1 -a build/**/* dist/",
-    "deploy": "node ./dist/signalingServer.js",
+    "build": "rimraf dist && rimraf build && npm run build:app && tsc --p tsconfig.server.json && npx copyfiles -u 1 -a dist/**/* build/ ",
+    "deploy": "node ./build/signalingServer.js",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
   },
