@@ -12,7 +12,7 @@ const { port } = yargs.options({
   'port': {
     alias: 'p',
     type: 'number',
-    default: 3001
+    default: process.env.PORT || 3001,
   }
 }).argv
 
