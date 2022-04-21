@@ -42,34 +42,67 @@ app.get(/^(?!\/socket.io).*$/, (req, res) => {
   }
 })
 
+const broadcasts: { [key: string]: string } = {}
+
 // socket listeners (https://socket.io/docs/v3/emit-cheatsheet/)
 websocket.on('connection', socket => {
   console.log(`client ${socket.id} connected`)
   socket.broadcast.emit('client', { from: socket.id })
 
-  // room join/leave events
-  socket.on('call', (payload?: { to?: string } & any) => {
+  // room create/join/leave events
+  socket.on('call', (payload?: { to?: string, isBroadcast?: boolean } & any) => {
     const room = randomBytes(20).toString('hex')
     socket.join(room)
+    if (payload?.isBroadcast) {
+      broadcasts[room] = socket.id
+    }
     payload?.to ? websocket.to(payload.to).emit('call', { ...payload, room, from: socket.id }) : socket.emit('call', { ...payload, room, from: 'self' })
   })
   socket.on('join', payload => {
     socket.join(payload.room)
     console.log(`client ${socket.id} joined room ${payload.room}`)
-    socket.broadcast.to(payload.room).emit('join', { ...payload, from: socket.id })
+    const broadcaster = broadcasts[payload.room]
+    if (broadcaster && socket.id !== broadcaster) {
+      console.log(`${socket.id} joining broadcast '${payload.room}'`)
+      websocket.to(broadcaster).emit('join', { ...payload, from: socket.id })
+    } else if (!broadcaster) {
+      socket.broadcast.to(payload.room).emit('join', { ...payload, from: socket.id })
+    }
   })
   socket.on('leave', payload => {
     socket.leave(payload.room)
     socket.broadcast.to(payload.room).emit('leave', { ...payload, from: socket.id })
+    const match = findAbandonedBroadcasts(socket.id)
+    if (match) {
+      delete broadcasts[match]
+    }
   })
 
   // webrtc signaling events
-  socket.on('desc', payload => socket.broadcast.to(payload.to).emit('desc', { ...payload, from: socket.id }))
-  socket.on('candidate', payload => socket.broadcast.to(payload.to).emit('candidate', { ...payload, from: socket.id }))
+  socket.on('desc', payload => {
+    const broadcaster = broadcasts[payload.room]
+    if (broadcaster && socket.id !== broadcaster) {
+      websocket.to(broadcaster).emit('desc', { ...payload, from: socket.id })
+    } else {
+      socket.broadcast.to(payload.to).emit('desc', { ...payload, from: socket.id })
+    }
+  })
+  socket.on('candidate', payload => {
+    const broadcaster = broadcasts[payload.room]
+    if (broadcaster && socket.id !== broadcaster) {
+      websocket.to(broadcaster).emit('candidate', { ...payload, from: socket.id })
+    } else {
+      socket.broadcast.to(payload.to).emit('candidate', { ...payload, from: socket.id })
+    }
+  })
 
   socket.on('disconnecting', () => {
     socket.rooms.forEach(room => {
       socket.broadcast.to(room).emit('leave', { from: socket.id, room })
+      const match = findAbandonedBroadcasts(socket.id)
+      if (match) {
+        delete broadcasts[match]
+      }
     })
   })
 
@@ -78,6 +111,10 @@ websocket.on('connection', socket => {
     console.log(`client ${socket.id} disconnected`)
   })
 })
+
+function findAbandonedBroadcasts(broadcaster: string) {
+  return Object.keys(broadcasts).find(r => broadcasts[r] === broadcaster)
+}
 
 // start the server
 httpServer.listen(port, '0.0.0.0', () => console.log(`🚀 Server ready at ws://localhost:${port}`))
