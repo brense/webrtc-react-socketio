@@ -3,7 +3,7 @@ import { Subject } from 'rxjs'
 import { CandidatePayload, createIoSignalingChanel, RoomPayload, SessionDescriptionPayload } from './signalingChannel'
 
 const onMessage = new Subject<{ [key: string]: string | number }>()
-const onTrack = new Subject<RTCTrackEvent>()
+const onTrack = new Subject<{ remotePeerId: string, track: RTCTrackEvent }>()
 const onChannelOpen = new Subject<{ remotePeerId: string, room: string }>()
 const onChannelClose = new Subject<{ remotePeerId: string, room: string }>()
 
@@ -153,7 +153,7 @@ export function createWebRTCClient({ signalingChannel, ...configuration }: RTCCo
       })
     }
     connection.ondatachannel = event => setDataChannelListeners(event.channel, room, remotePeerId)
-    connection.ontrack = track => onTrack.next(track)
+    connection.ontrack = track => onTrack.next({ remotePeerId, track })
     connection.oniceconnectionstatechange = event => console.log('ice state changed', event)
     connections.push({ room, remotePeerId, connection })
     return { room, remotePeerId, connection }

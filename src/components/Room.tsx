@@ -1,31 +1,52 @@
 import { Box, Button, FilledInput, Icon, IconButton, List, ListItem, ListItemText } from '@mui/material'
 import moment from 'moment'
-import { FormEvent, useCallback, useEffect, useRef, useState } from 'react'
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Subscription } from 'rxjs'
 import { useWebRTC } from '../webrtc'
 
+function AudioStream({ stream, muted }: { stream: MediaProvider, muted: boolean }) {
+  const audioRef = useRef<HTMLAudioElement>(null)
+  useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.srcObject = stream
+    }
+  }, [stream])
+  useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.muted = muted
+    }
+  }, [muted])
+  return <audio ref={audioRef} autoPlay />
+}
+
 function Room({ name, room }: { name: string, room: string }) {
   const [muted, setMuted] = useState(false)
-  const [hasAudio, setHasAudio] = useState(false)
+  const [audioSources, setAudioSources] = useState<{ [key: string]: MediaProvider }>({})
+  const hasAudio = useMemo(() => Object.keys(audioSources).length > 0, [audioSources])
   const [isRecording, setIsRecording] = useState(false)
   const [messages, setMessages] = useState<Array<{ name: string, message: string, date: Date }>>([])
-  const { onMessage, onChannelOpen, onChannelClose, sendMessage, onTrack, addTrack, removeTrack } = useWebRTC()
-  const audioRef = useRef<HTMLAudioElement>(null)
+  const { onMessage, onChannelClose, sendMessage, onTrack, addTrack, removeTrack } = useWebRTC()
   const streamRef = useRef<MediaStream>()
 
   useEffect(() => {
     const subscribers: Subscription[] = []
     subscribers.push(onMessage.subscribe(data => setMessages(messages => [...messages, data as any])))
-    subscribers.push(onTrack.subscribe(event => {
-      console.log('received track', event)
-      if (audioRef.current) {
-        event.streams[0].onremovetrack = () => setHasAudio(false)
-        audioRef.current.srcObject = event.streams[0]
-        setHasAudio(true)
+    subscribers.push(onTrack.subscribe(({ remotePeerId, track }) => {
+      console.log('received track', track, remotePeerId)
+      setAudioSources(sources => ({ ...sources, [remotePeerId]: track.streams[0] }))
+      track.streams[0].onremovetrack = () => {
+        setAudioSources(sources => {
+          delete sources[remotePeerId]
+          return { ...sources }
+        })
       }
     }))
+    subscribers.push(onChannelClose.subscribe(({ remotePeerId }) => setAudioSources(sources => {
+      delete sources[remotePeerId]
+      return { ...sources }
+    })))
     return () => subscribers.forEach(subscriber => subscriber.unsubscribe())
-  }, [onMessage, onChannelOpen, onChannelClose, onTrack, room])
+  }, [onMessage, onChannelClose, onTrack, room])
 
   const toggleAudio = useCallback(async () => {
     if (streamRef.current) {
@@ -46,10 +67,7 @@ function Room({ name, room }: { name: string, room: string }) {
   }, [room, addTrack, removeTrack])
 
   const toggleAudioMuted = useCallback(() => {
-    if (audioRef.current) {
-      audioRef.current.muted = !audioRef.current.muted
-      setMuted(audioRef.current.muted)
-    }
+    setMuted(muted => !muted)
   }, [])
 
   const handleSendMessage = useCallback((event: FormEvent) => {
@@ -72,7 +90,7 @@ function Room({ name, room }: { name: string, room: string }) {
         </ListItem>)}
       </List>
     </Box>
-    <audio ref={audioRef} autoPlay />
+    {Object.keys(audioSources).map(k => <AudioStream stream={audioSources[k]} muted={muted} key={k} />)}
     <Box sx={{ display: 'flex', paddingBottom: 3, alignItems: 'center' }} component="form" onSubmit={handleSendMessage} autoComplete="off">
       <FilledInput sx={{ marginRight: 1 }} name="message" fullWidth autoFocus autoComplete="false" />
       <IconButton onClick={toggleAudio} sx={{ marginRight: 1 }}><Icon color={isRecording ? 'success' : 'inherit'}>mic</Icon></IconButton>
