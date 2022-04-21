@@ -6,6 +6,7 @@ import http from 'http'
 import path from 'path'
 import fs from 'fs'
 import { Server as WebSocketServer } from 'socket.io'
+import { randomBytes } from 'crypto'
 
 // parse process args
 const { port } = yargs.options({
@@ -41,20 +42,18 @@ app.get(/^(?!\/socket.io).*$/, (req, res) => {
   }
 })
 
-const rooms: Array<{ room: string, creator: string, isBroadcast: boolean }> = []
-
 // socket listeners (https://socket.io/docs/v3/emit-cheatsheet/)
 websocket.on('connection', socket => {
   console.log(`client ${socket.id} connected`)
   socket.broadcast.emit('client', { from: socket.id })
-  socket.emit('rooms', rooms)
 
   // room join/leave events
+  socket.on('call', (payload?: { to?: string } & any) => {
+    const room = randomBytes(20).toString('hex')
+    socket.join(room)
+    payload?.to ? websocket.to(payload.to).emit('call', { ...payload, room, from: socket.id }) : socket.emit('call', { ...payload, room, from: 'self' })
+  })
   socket.on('join', payload => {
-    const roomExists = !!websocket.sockets.adapter.rooms.get(payload.room)
-    if (!roomExists) {
-      rooms.push({ room: payload.room, creator: socket.id, isBroadcast: payload.isBroadcast || false })
-    }
     socket.join(payload.room)
     console.log(`client ${socket.id} joined room ${payload.room}`)
     socket.broadcast.to(payload.room).emit('join', { ...payload, from: socket.id })
@@ -70,13 +69,6 @@ websocket.on('connection', socket => {
 
   socket.on('disconnecting', () => {
     socket.rooms.forEach(room => {
-      // detect abandoned rooms and remove them
-      const r = websocket.sockets.adapter.rooms.get(room)
-      const rIndex = rooms.findIndex(i => i.room === room)
-      if (r?.size === 1 && r?.has(socket.id) && rIndex >= 0) {
-        console.log(`room ${room} is removed because it is empty`)
-        rooms.splice(rIndex, 1)
-      }
       socket.broadcast.to(room).emit('leave', { from: socket.id, room })
     })
   })

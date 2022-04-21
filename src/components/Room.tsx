@@ -1,8 +1,8 @@
 import { Box, Button, FilledInput, Icon, IconButton, List, ListItem, ListItemText } from '@mui/material'
 import moment from 'moment'
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Subscription } from 'rxjs'
 import { useWebRTC } from '../webrtc'
+import { useWebRTCEvent } from '../webrtc/webRTC'
 
 function AudioStream({ stream, muted }: { stream: MediaProvider, muted: boolean }) {
   const audioRef = useRef<HTMLAudioElement>(null)
@@ -25,28 +25,35 @@ function Room({ name, room }: { name: string, room: string }) {
   const hasAudio = useMemo(() => Object.keys(audioSources).length > 0, [audioSources])
   const [isRecording, setIsRecording] = useState(false)
   const [messages, setMessages] = useState<Array<{ name: string, message: string, date: Date }>>([])
-  const { onMessage, onChannelClose, sendMessage, onTrack, addTrack, removeTrack } = useWebRTC()
+  const { call, sendMessage, addTrack, removeTrack } = useWebRTC()
   const streamRef = useRef<MediaStream>()
 
   useEffect(() => {
-    const subscribers: Subscription[] = []
-    subscribers.push(onMessage.subscribe(data => setMessages(messages => [...messages, data as any])))
-    subscribers.push(onTrack.subscribe(({ remotePeerId, track }) => {
-      console.log('received track', track, remotePeerId)
-      setAudioSources(sources => ({ ...sources, [remotePeerId]: track.streams[0] }))
-      track.streams[0].onremovetrack = () => {
-        setAudioSources(sources => {
-          delete sources[remotePeerId]
-          return { ...sources }
-        })
-      }
-    }))
-    subscribers.push(onChannelClose.subscribe(({ remotePeerId }) => setAudioSources(sources => {
+    call(room)
+  }, [call, room])
+
+  useWebRTCEvent('onMessage', data => setMessages(messages => [...messages, data as any]))
+
+  useWebRTCEvent('onTrack', ({ remotePeerId, track }) => {
+    console.log('received track', track, remotePeerId)
+    setAudioSources(sources => ({ ...sources, [remotePeerId]: track.streams[0] }))
+    track.streams[0].onremovetrack = () => {
+      setAudioSources(sources => {
+        delete sources[remotePeerId]
+        return { ...sources }
+      })
+    }
+  })
+
+  useWebRTCEvent('onChannelOpen', ({ room }) => sendMessage(room, { name: 'System', message: `${name || 'peer'} has joined`, date: new Date() }), [name])
+
+  useWebRTCEvent('onChannelClose', ({ remotePeerId }) => {
+    sendMessage(room, { name: 'System', message: `${name || 'peer'} has left`, date: new Date() })
+    setAudioSources(sources => {
       delete sources[remotePeerId]
       return { ...sources }
-    })))
-    return () => subscribers.forEach(subscriber => subscriber.unsubscribe())
-  }, [onMessage, onChannelClose, onTrack, room])
+    })
+  }, [name])
 
   const toggleAudio = useCallback(async () => {
     if (streamRef.current) {

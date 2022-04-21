@@ -26,43 +26,41 @@ export type RoomPayload = {
   isBroadcast?: boolean // the creator of the room is broadcasting and peers should only connect to the creator and not other peers in the room
 }
 
-const onConnect = new Subject<string>()
-const onRooms = new Subject<Array<{ room: string, creator: string, isBroadcast: boolean }>>()
-const onDisconnect = new Subject()
-const onClient = new Subject<ClientPayload>()
-const onJoin = new Subject<RoomPayload>()
-const onLeave = new Subject<Omit<RoomPayload, 'room'> & { room?: string }>()
-const onSessionDescription = new Subject<SessionDescriptionPayload>()
-const onCandidate = new Subject<CandidatePayload>()
+
+const subjects = {
+  onConnect: new Subject<string>(),
+  onDisconnect: new Subject(),
+  onClient: new Subject<ClientPayload>(),
+  onCall: new Subject<RoomPayload & any>(),
+  onJoin: new Subject<RoomPayload>(),
+  onLeave: new Subject<Omit<RoomPayload, 'room'> & { room?: string }>(),
+  onSessionDescription: new Subject<SessionDescriptionPayload>(),
+  onCandidate: new Subject<CandidatePayload>()
+}
 
 export function createIoSignalingChanel(uri: string, opts?: Partial<ManagerOptions & SocketOptions> | undefined) {
   const socket = io(uri, opts)
   socket.on('connect', () => {
     console.log(`Connected to websocket, localPeerId: ${socket.id}`)
-    onConnect.next(socket.id)
+    subjects.onConnect.next(socket.id)
   })
 
-  socket.on('rooms', payload => onRooms.next(payload)) // client has received the list of rooms from the socket server
-  socket.on('client', payload => onClient.next(payload)) // a new client has connected to the websocket
-  socket.on('join', ({ isBroadcast = false, ...rest }: RoomPayload) => onJoin.next({ isBroadcast, ...rest })) // a peer wants to join a room or has created one
-  socket.on('leave', payload => onLeave.next(payload)) // a peer has left a room or has disconnected
-  socket.on('desc', payload => onSessionDescription.next(payload)) // receive a session description from another peer
-  socket.on('candidate', payload => onCandidate.next(payload)) // receive an icecandidate from another peer
+  socket.on('client', payload => subjects.onClient.next(payload)) // a new client has connected to the websocket
+  socket.on('call', payload => subjects.onCall.next(payload)) // a client is calling
+  socket.on('join', ({ isBroadcast = false, ...rest }: RoomPayload) => subjects.onJoin.next({ isBroadcast, ...rest })) // a peer wants to join a room or has created one
+  socket.on('leave', payload => subjects.onLeave.next(payload)) // a peer has left a room or has disconnected
+  socket.on('desc', payload => subjects.onSessionDescription.next(payload)) // receive a session description from another peer
+  socket.on('candidate', payload => subjects.onCandidate.next(payload)) // receive an icecandidate from another peer
 
   socket.on('disconnect', () => {
-    onDisconnect.next(undefined)
+    subjects.onDisconnect.next(undefined)
   })
 
   return {
-    onConnect,
-    onDisconnect,
-    onClient,
-    onJoin,
-    onLeave,
-    onSessionDescription,
-    onCandidate,
+    ...subjects,
     connect: () => !socket.connected && socket.connect(),
     disconnect: () => socket.close(),
+    call: (payload?: { to?: string } & any) => socket.emit('call', payload),
     join: (payload: Omit<RoomPayload, 'from'>) => {
       socket.emit('join', payload)
       const onNewPeer = new Subject<RoomPayload>()
@@ -81,6 +79,15 @@ const SignalingChanelContext = React.createContext<SignalingChanel>(undefined as
 
 export function SignalingChannelProvider({ children, signalingChannel }: React.PropsWithChildren<{ signalingChannel: SignalingChanel }>) {
   return <SignalingChanelContext.Provider value={signalingChannel}>{children}</SignalingChanelContext.Provider>
+}
+
+type EventPayloads<K extends keyof typeof subjects> = Parameters<typeof subjects[K]['subscribe']>[0]
+
+export function useSignalingEvent<K extends keyof typeof subjects, T = EventPayloads<K>>(eventName: K, listener: T, ...deps: any[]) {
+  useEffect(() => {
+    const subscription = (subjects[eventName] as unknown as Subject<T>).subscribe(listener)
+    return () => subscription.unsubscribe()
+  }, deps) // eslint-disable-line react-hooks/exhaustive-deps
 }
 
 export function useSignalingChannel() {

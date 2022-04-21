@@ -1,14 +1,15 @@
-import React, { useContext } from 'react'
+import React, { useContext, useEffect } from 'react'
 import { Subject } from 'rxjs'
 import { CandidatePayload, createIoSignalingChanel, RoomPayload, SessionDescriptionPayload } from './signalingChannel'
 
-const onMessage = new Subject<{ [key: string]: string | number }>()
-const onTrack = new Subject<{ remotePeerId: string, track: RTCTrackEvent }>()
-const onChannelOpen = new Subject<{ remotePeerId: string, room: string }>()
-const onChannelClose = new Subject<{ remotePeerId: string, room: string }>()
+const subjects = {
+  onMessage: new Subject<{ [key: string]: string | number }>(),
+  onTrack: new Subject<{ remotePeerId: string, track: RTCTrackEvent }>(),
+  onChannelOpen: new Subject<{ remotePeerId: string, room: string }>(),
+  onChannelClose: new Subject<{ remotePeerId: string, room: string }>()
+}
 
 export function createWebRTCClient({ signalingChannel, ...configuration }: RTCConfiguration & { signalingChannel: ReturnType<typeof createIoSignalingChanel> }) {
-  let identifier = 'peer'
   const connections: Array<{ room: string, remotePeerId: string, connection: RTCPeerConnection, channel?: RTCDataChannel, sender?: RTCRtpSender }> = []
 
   signalingChannel.onSessionDescription.subscribe(receiveSessionDescription)
@@ -52,6 +53,10 @@ export function createWebRTCClient({ signalingChannel, ...configuration }: RTCCo
 
   async function leaveRoom(room: string) {
     signalingChannel.leave({ room })
+  }
+
+  async function getConnectionsForRoom(room: string) {
+    return connections.filter(c => c.room === room)
   }
 
   async function closeConnection({ from: remotePeerId, room }: Omit<RoomPayload, | 'room'> & { room?: string }) {
@@ -114,10 +119,9 @@ export function createWebRTCClient({ signalingChannel, ...configuration }: RTCCo
 
   function setDataChannelListeners(channel: RTCDataChannel, room: string, remotePeerId: string) {
     if (channel.readyState !== 'closed') {
-      channel.onmessage = message => onMessage.next(JSON.parse(message.data, dateReviver))
+      channel.onmessage = message => subjects.onMessage.next(JSON.parse(message.data, dateReviver))
       channel.onopen = () => {
-        onChannelOpen.next({ remotePeerId, room })
-        sendMessage(room, { name: 'System', message: `${identifier || 'peer'} has joined`, date: new Date() })
+        subjects.onChannelOpen.next({ remotePeerId, room })
       }
       channel.onclose = () => {
         console.log('channel closed', room, remotePeerId)
@@ -126,8 +130,7 @@ export function createWebRTCClient({ signalingChannel, ...configuration }: RTCCo
           connections[index].connection.close()
           connections.splice(index, 1)
         }
-        onChannelClose.next({ remotePeerId, room })
-        sendMessage(room, { name: 'System', message: `${identifier || 'peer'} has left`, date: new Date() })
+        subjects.onChannelClose.next({ remotePeerId, room })
       }
       const index = connections.findIndex(c => c.room === room && c.remotePeerId === remotePeerId)
       connections[index] = { ...connections[index], channel }
@@ -153,7 +156,7 @@ export function createWebRTCClient({ signalingChannel, ...configuration }: RTCCo
       })
     }
     connection.ondatachannel = event => setDataChannelListeners(event.channel, room, remotePeerId)
-    connection.ontrack = track => onTrack.next({ remotePeerId, track })
+    connection.ontrack = track => subjects.onTrack.next({ remotePeerId, track })
     connection.oniceconnectionstatechange = event => console.log('ice state changed', event)
     connections.push({ room, remotePeerId, connection })
     return { room, remotePeerId, connection }
@@ -180,18 +183,15 @@ export function createWebRTCClient({ signalingChannel, ...configuration }: RTCCo
   }
 
   return {
-    onMessage,
-    onTrack,
-    onChannelOpen,
-    onChannelClose,
-    setIdentifier: (id: string) => identifier = id,
+    ...subjects,
     broadcast,
     call,
     joinRoom,
     leaveRoom,
     sendMessage,
     addTrack,
-    removeTrack
+    removeTrack,
+    getConnectionsForRoom
   }
 }
 
@@ -208,6 +208,15 @@ const WebRTCClientContext = React.createContext<WebRTCClient>(undefined as unkno
 
 export function WebRTCClientProvider({ children, client }: React.PropsWithChildren<{ client: WebRTCClient }>) {
   return <WebRTCClientContext.Provider value={client}>{children}</WebRTCClientContext.Provider>
+}
+
+type EventPayloads<K extends keyof typeof subjects> = Parameters<typeof subjects[K]['subscribe']>[0]
+
+export function useWebRTCEvent<K extends keyof typeof subjects, T = EventPayloads<K>>(eventName: K, listener: T, ...deps: any[]) {
+  useEffect(() => {
+    const subscription = (subjects[eventName] as unknown as Subject<T>).subscribe(listener)
+    return () => subscription.unsubscribe()
+  }, deps) // eslint-disable-line react-hooks/exhaustive-deps
 }
 
 export function useWebRTC() {

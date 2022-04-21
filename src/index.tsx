@@ -35,7 +35,7 @@ const iceServers = [
 const port = window.location.port || (window.location.protocol === 'https:' ? 443 : 80)
 const socketUrl = `${window.location.protocol}//${window.location.hostname}:${port}`
 
-const signalingChannel = createIoSignalingChanel(socketUrl, { autoConnect: false })
+const signalingChannel = createIoSignalingChanel(socketUrl, { autoConnect: true })
 const webRTCClient = createWebRTCClient({ signalingChannel, iceServers })
 
 const theme = createTheme({
