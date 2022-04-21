@@ -60,7 +60,7 @@ export function createIoSignalingChanel(uri: string, opts?: Partial<ManagerOptio
     ...subjects,
     connect: () => !socket.connected && socket.connect(),
     disconnect: () => socket.close(),
-    call: (payload?: { to?: string } & any) => socket.emit('call', payload),
+    call: (payload?: { to?: string, isBroadcast?: boolean } & any) => socket.emit('call', payload),
     join: (payload: Omit<RoomPayload, 'from'>) => {
       socket.emit('join', payload)
       const onNewPeer = new Subject<RoomPayload>()
