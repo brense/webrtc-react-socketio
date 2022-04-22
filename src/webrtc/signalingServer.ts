@@ -56,7 +56,7 @@ websocket.on('connection', socket => {
     if (payload?.isBroadcast) {
       broadcasts[room] = socket.id
     }
-    payload?.to ? websocket.to(payload.to).emit('call', { ...payload, room, from: socket.id }) : socket.emit('call', { ...payload, room, from: 'self' })
+    payload?.to ? websocket.to(payload.to).emit('call', { ...payload, room, from: socket.id }) : socket.emit('call', { ...payload, room, from: socket.id })
   })
   socket.on('join', payload => {
     socket.join(payload.room)
@@ -66,6 +66,7 @@ websocket.on('connection', socket => {
       console.log(`${socket.id} joining broadcast '${payload.room}'`)
       websocket.to(broadcaster).emit('join', { ...payload, from: socket.id })
     } else if (!broadcaster) {
+      console.log('send join', payload)
       socket.broadcast.to(payload.room).emit('join', { ...payload, from: socket.id })
     }
   })

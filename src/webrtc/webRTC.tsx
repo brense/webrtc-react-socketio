@@ -3,7 +3,7 @@ import { Subject } from 'rxjs'
 import { CandidatePayload, createIoSignalingChanel, RoomPayload, SessionDescriptionPayload } from './signalingChannel'
 
 const subjects = {
-  onMessage: new Subject<{ [key: string]: string | number }>(),
+  onMessage: new Subject<{ remotePeerId: string, [key: string]: string | number }>(),
   onTrack: new Subject<{ remotePeerId: string, track: RTCTrackEvent }>(),
   onChannelOpen: new Subject<{ remotePeerId: string, room: string }>(),
   onChannelClose: new Subject<{ remotePeerId: string, room: string }>()
@@ -119,7 +119,7 @@ export function createWebRTCClient({ signalingChannel, ...configuration }: RTCCo
 
   function setDataChannelListeners(channel: RTCDataChannel, room: string, remotePeerId: string) {
     if (channel.readyState !== 'closed') {
-      channel.onmessage = message => subjects.onMessage.next(JSON.parse(message.data, dateReviver))
+      channel.onmessage = message => subjects.onMessage.next({ ...JSON.parse(message.data, dateReviver), remotePeerId })
       channel.onopen = () => {
         subjects.onChannelOpen.next({ remotePeerId, room })
       }
@@ -212,11 +212,11 @@ export function WebRTCClientProvider({ children, client }: React.PropsWithChildr
 
 type EventPayloads<K extends keyof typeof subjects> = Parameters<typeof subjects[K]['subscribe']>[0]
 
-export function useWebRTCEvent<K extends keyof typeof subjects, T = EventPayloads<K>>(eventName: K, listener: T, ...deps: any[]) {
+export function useWebRTCEvent<K extends keyof typeof subjects, T = EventPayloads<K>>(eventName: K, listener: T) {
   useEffect(() => {
     const subscription = (subjects[eventName] as unknown as Subject<T>).subscribe(listener)
     return () => subscription.unsubscribe()
-  }, deps) // eslint-disable-line react-hooks/exhaustive-deps
+  })
 }
 
 export function useWebRTC() {

@@ -3,6 +3,7 @@ import moment from 'moment'
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useWebRTC } from '../webrtc'
 import { useWebRTCEvent } from '../webrtc/webRTC'
+import RoomMembers, { Member } from './RoomMembers'
 
 function AudioStream({ stream, muted }: { stream: MediaProvider, muted: boolean }) {
   const audioRef = useRef<HTMLAudioElement>(null)
@@ -19,20 +20,36 @@ function AudioStream({ stream, muted }: { stream: MediaProvider, muted: boolean 
   return <audio ref={audioRef} autoPlay />
 }
 
-function Room({ name, room }: { name: string, room: string }) {
+type Message = {
+  name: string,
+  message: string,
+  date: Date
+}
+
+function Room({ name, room, onCall }: { name: string, room: string, onCall: (remotePeerId: string) => void }) {
+  const [members, setMembers] = useState<Member[]>([])
   const [muted, setMuted] = useState(false)
+  const [showMembers, setShowMembers] = useState(false)
   const [audioSources, setAudioSources] = useState<{ [key: string]: MediaProvider }>({})
   const hasAudio = useMemo(() => Object.keys(audioSources).length > 0, [audioSources])
   const [isRecording, setIsRecording] = useState(false)
-  const [messages, setMessages] = useState<Array<{ name: string, message: string, date: Date }>>([])
-  const { call, sendMessage, addTrack, removeTrack } = useWebRTC()
+  const [messages, setMessages] = useState<Message[]>([])
+  const { call: join, sendMessage, addTrack, removeTrack } = useWebRTC()
   const streamRef = useRef<MediaStream>()
 
   useEffect(() => {
-    call(room)
-  }, [call, room])
+    join(room)
+  }, [join, room])
 
-  useWebRTCEvent('onMessage', data => setMessages(messages => [...messages, data as any]))
+  useWebRTCEvent('onMessage', ({ remotePeerId, ...data }: Message & { remotePeerId: string }) => {
+    if (data.name === 'System' && data.message.indexOf('has joined') >= 0) {
+      const exists = members.find(m => m.remotePeerId === remotePeerId)
+      if (!exists) {
+        setMembers(m => [...m, { remotePeerId, name: data.message.replace(' has joined', '') }])
+      }
+    }
+    setMessages(messages => [...messages, data])
+  })
 
   useWebRTCEvent('onTrack', ({ remotePeerId, track }) => {
     console.log('received track', track, remotePeerId)
@@ -45,15 +62,22 @@ function Room({ name, room }: { name: string, room: string }) {
     }
   })
 
-  useWebRTCEvent('onChannelOpen', ({ room }) => sendMessage(room, { name: 'System', message: `${name || 'peer'} has joined`, date: new Date() }), [name])
+  useWebRTCEvent('onChannelOpen', ({ room }) => sendMessage(room, { name: 'System', message: `${name || 'peer'} has joined`, date: new Date() }))
 
   useWebRTCEvent('onChannelClose', ({ remotePeerId }) => {
+    const mIndex = members.findIndex(m => m.remotePeerId === remotePeerId)
+    if (mIndex >= 0) {
+      setMembers(m => {
+        m.splice(mIndex, 1)
+        return m
+      })
+    }
     sendMessage(room, { name: 'System', message: `${name || 'peer'} has left`, date: new Date() })
     setAudioSources(sources => {
       delete sources[remotePeerId]
       return { ...sources }
     })
-  }, [name])
+  })
 
   const toggleAudio = useCallback(async () => {
     if (streamRef.current) {
@@ -77,6 +101,11 @@ function Room({ name, room }: { name: string, room: string }) {
     setMuted(muted => !muted)
   }, [])
 
+  const handleCall = useCallback((remotePeerId: string) => {
+    setShowMembers(false)
+    onCall(remotePeerId)
+  }, [onCall])
+
   const handleSendMessage = useCallback((event: FormEvent) => {
     event.preventDefault()
     const message: string = (event.target as any).elements.message.value
@@ -99,11 +128,13 @@ function Room({ name, room }: { name: string, room: string }) {
     </Box>
     {Object.keys(audioSources).map(k => <AudioStream stream={audioSources[k]} muted={muted} key={k} />)}
     <Box sx={{ display: 'flex', paddingBottom: 3, alignItems: 'center' }} component="form" onSubmit={handleSendMessage} autoComplete="off">
-      <FilledInput sx={{ marginRight: 1 }} name="message" fullWidth autoFocus autoComplete="false" />
+      <FilledInput sx={{ marginRight: 1 }} name="message" fullWidth autoFocus role="presentation" autoComplete="off" />
       <IconButton onClick={toggleAudio} sx={{ marginRight: 1 }}><Icon color={isRecording ? 'success' : 'inherit'}>mic</Icon></IconButton>
       <IconButton onClick={toggleAudioMuted} sx={{ marginRight: 1 }}><Icon color={hasAudio ? !muted ? 'success' : 'inherit' : 'disabled'}>{hasAudio && !muted ? 'volume_up' : 'volume_mute'}</Icon></IconButton>
+      <IconButton onClick={() => setShowMembers(true)} sx={{ marginRight: 1 }}><Icon>person</Icon></IconButton>
       <Button variant="contained" type="submit">Send</Button>
     </Box>
+    <RoomMembers members={members} onCall={handleCall} open={showMembers} onClose={() => setShowMembers(false)} />
   </Box>
 }
 

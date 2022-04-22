@@ -58,11 +58,15 @@ export function createIoSignalingChanel(uri: string, opts?: Partial<ManagerOptio
 
   return {
     ...subjects,
+    me: () => socket.id,
     connect: () => !socket.connected && socket.connect(),
     disconnect: () => socket.close(),
-    call: (payload?: { to?: string, isBroadcast?: boolean } & any) => socket.emit('call', payload),
+    call: (to: string, name: string) => socket.emit('call', { to, name }),
+    createRoom: (payload: { isBroadcast: boolean }) => socket.emit('call', payload),
     join: (payload: Omit<RoomPayload, 'from'>) => {
       socket.emit('join', payload)
+      console.log('joining', payload)
+      socket.on('join', p => console.log('joined', payload))
       const onNewPeer = new Subject<RoomPayload>()
       socket.on('join', ({ isBroadcast = false, ...rest }: RoomPayload) => rest.room === payload.room && onNewPeer.next({ isBroadcast, ...rest }))
       return { onNewPeer }
@@ -83,11 +87,11 @@ export function SignalingChannelProvider({ children, signalingChannel }: React.P
 
 type EventPayloads<K extends keyof typeof subjects> = Parameters<typeof subjects[K]['subscribe']>[0]
 
-export function useSignalingEvent<K extends keyof typeof subjects, T = EventPayloads<K>>(eventName: K, listener: T, ...deps: any[]) {
+export function useSignalingEvent<K extends keyof typeof subjects, T = EventPayloads<K>>(eventName: K, listener: T) {
   useEffect(() => {
     const subscription = (subjects[eventName] as unknown as Subject<T>).subscribe(listener)
     return () => subscription.unsubscribe()
-  }, deps) // eslint-disable-line react-hooks/exhaustive-deps
+  })
 }
 
 export function useSignalingChannel() {
