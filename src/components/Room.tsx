@@ -1,8 +1,7 @@
 import { Box, Button, FilledInput, Icon, IconButton, List, ListItem, ListItemText } from '@mui/material'
 import moment from 'moment'
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useWebRTC } from '../webrtc'
-import { useWebRTCEvent } from '../webrtc/webRTC'
+import { Room as WebRTCRoom, useOnChannelClose, useOnChannelOpen, useOnMessage, useOnTrack } from '../webrtc/webRTC'
 import RoomMembers, { Member } from './RoomMembers'
 
 function AudioStream({ stream, muted }: { stream: MediaProvider, muted: boolean }) {
@@ -26,7 +25,7 @@ type Message = {
   date: Date
 }
 
-function Room({ name, room, onCall }: { name: string, room: string, onCall: (remotePeerId: string) => void }) {
+function Room({ name, room: { name: roomName, sendMessage, addTrack, removeTrack }, onCall }: { name: string, room: Exclude<WebRTCRoom, undefined>, onCall: (remotePeerId: string) => void }) {
   const [members, setMembers] = useState<Member[]>([])
   const [muted, setMuted] = useState(false)
   const [showMembers, setShowMembers] = useState(false)
@@ -34,24 +33,20 @@ function Room({ name, room, onCall }: { name: string, room: string, onCall: (rem
   const hasAudio = useMemo(() => Object.keys(audioSources).length > 0, [audioSources])
   const [isRecording, setIsRecording] = useState(false)
   const [messages, setMessages] = useState<Message[]>([])
-  const { call: join, sendMessage, addTrack, removeTrack } = useWebRTC()
   const streamRef = useRef<MediaStream>()
 
-  useEffect(() => {
-    join(room)
-  }, [join, room])
-
-  useWebRTCEvent('onMessage', ({ remotePeerId, ...data }: Message & { remotePeerId: string }) => {
-    if (data.name === 'System' && data.message.indexOf('has joined') >= 0) {
+  useOnMessage(roomName, ({ remotePeerId, ...data }) => {
+    if (data.name === 'System' && (data.message + '').indexOf('has joined') >= 0) {
       const exists = members.find(m => m.remotePeerId === remotePeerId)
       if (!exists) {
-        setMembers(m => [...m, { remotePeerId, name: data.message.replace(' has joined', '') }])
+        setMembers(m => [...m, { remotePeerId, name: (data.message + '').replace(' has joined', '') }])
       }
     }
-    setMessages(messages => [...messages, data])
+    // TODO: only show joined/left message when a member is new
+    setMessages(messages => [...messages, data as unknown as Message])
   })
 
-  useWebRTCEvent('onTrack', ({ remotePeerId, track }) => {
+  useOnTrack(roomName, ({ remotePeerId, track }) => {
     console.log('received track', track, remotePeerId)
     setAudioSources(sources => ({ ...sources, [remotePeerId]: track.streams[0] }))
     track.streams[0].onremovetrack = () => {
@@ -62,9 +57,9 @@ function Room({ name, room, onCall }: { name: string, room: string, onCall: (rem
     }
   })
 
-  useWebRTCEvent('onChannelOpen', ({ room }) => sendMessage(room, { name: 'System', message: `${name || 'peer'} has joined`, date: new Date() }))
+  useOnChannelOpen(roomName, () => sendMessage({ name: 'System', message: `${name || 'peer'} has joined`, date: new Date() }))
 
-  useWebRTCEvent('onChannelClose', ({ remotePeerId }) => {
+  useOnChannelClose(roomName, ({ remotePeerId }) => {
     const mIndex = members.findIndex(m => m.remotePeerId === remotePeerId)
     if (mIndex >= 0) {
       setMembers(m => {
@@ -72,7 +67,7 @@ function Room({ name, room, onCall }: { name: string, room: string, onCall: (rem
         return m
       })
     }
-    sendMessage(room, { name: 'System', message: `${name || 'peer'} has left`, date: new Date() })
+    sendMessage({ name: 'System', message: `${name || 'peer'} has left`, date: new Date() })
     setAudioSources(sources => {
       delete sources[remotePeerId]
       return { ...sources }
@@ -83,7 +78,7 @@ function Room({ name, room, onCall }: { name: string, room: string, onCall: (rem
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(track => track.stop())
       streamRef.current = undefined
-      removeTrack(room)
+      removeTrack()
       setIsRecording(false)
     } else {
       setIsRecording(true)
@@ -93,9 +88,9 @@ function Room({ name, room, onCall }: { name: string, room: string, onCall: (rem
           video: false
         })
       streamRef.current = stream
-      stream.getTracks().forEach(track => addTrack(room, track, stream))
+      stream.getTracks().forEach(track => addTrack(track, stream))
     }
-  }, [room, addTrack, removeTrack])
+  }, [removeTrack, addTrack])
 
   const toggleAudioMuted = useCallback(() => {
     setMuted(muted => !muted)
@@ -111,11 +106,11 @@ function Room({ name, room, onCall }: { name: string, room: string, onCall: (rem
     const message: string = (event.target as any).elements.message.value
     if (message.trim() !== '') {
       const data = { name, message, date: new Date() }
-      sendMessage(room, data)
+      sendMessage(data)
       setMessages(messages => [...messages, data])
     }
     (event.target as any).reset()
-  }, [sendMessage, name, room])
+  }, [name, sendMessage])
 
   return <Box sx={{ height: '100%', width: '50%', maxWidth: 600, minWidth: 320, display: 'flex', flexDirection: 'column' }}>
     <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>

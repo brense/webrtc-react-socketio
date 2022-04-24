@@ -52,11 +52,15 @@ websocket.on('connection', socket => {
   // room create/join/leave events
   socket.on('call', (payload?: { to?: string, isBroadcast?: boolean } & any) => {
     const room = randomBytes(20).toString('hex')
+    console.log(`client ${socket.id} joined room ${room}`)
     socket.join(room)
     if (payload?.isBroadcast) {
-      broadcasts[room] = socket.id
+      broadcasts[room] = socket.id // TODO: need to keep track of this when the socket disconnects and comes back this needs to change...
     }
-    payload?.to ? websocket.to(payload.to).emit('call', { ...payload, room, from: socket.id }) : socket.emit('call', { ...payload, room, from: socket.id })
+    if(payload?.to){
+      websocket.to(payload.to).emit('call', { ...payload, room, from: socket.id })
+    }
+    socket.emit('call', { ...payload, room, from: socket.id })
   })
   socket.on('join', payload => {
     socket.join(payload.room)

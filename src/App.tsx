@@ -1,58 +1,39 @@
 import { AppBar, Box, Button, Icon, Snackbar, TextField, Toolbar, Typography } from '@mui/material'
 import { FormEvent, useCallback, useEffect, useState } from 'react'
-import CreateRoom from './components/CreateRoom'
-import PrivateCall from './components/PrivateCall'
 import Room from './components/Room'
 import { useSignalingChannel } from './webrtc'
-import { useSignalingEvent } from './webrtc/signalingChannel'
+import { useCall, useOnCall } from './webrtc/webRTC'
 
 function App() {
-  const [showCreateRoom, setShowCreateRoom] = useState(false)
-  const [hasPrivateCaller, setHasPrivateCaller] = useState<string>()
-  const [privateCaller, setPrivateCaller] = useState<string>()
+  const [hasCall, setHasCall] = useState<{ room: string, from: string, name: string | undefined }>()
   const [name, setName] = useState('')
-  const [room, setRoom] = useState('')
-  const { isConnected, call, me, ...signalingChannel } = useSignalingChannel()
+  const { isConnected, disconnect } = useSignalingChannel()
+  const { makeCall, answerCall, room } = useCall()
 
-  useSignalingEvent('onCall', ({ from, room }) => {
-    if (from !== me()) {
-      setHasPrivateCaller(room)
+  useOnCall(payload => setHasCall({ ...payload, name: payload.name }))
+
+  const handleCall = useCallback((remotePeerId?: string, isBroadcast = false) => {
+    makeCall(remotePeerId || null, { isBroadcast, name })
+  }, [makeCall, name])
+
+  const handleAnswerCall = useCallback(() => {
+    if (hasCall && name) {
+      answerCall({ ...hasCall, name })
     }
-  })
+  }, [answerCall, hasCall, name])
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const room = params.get('room')
-    if (room) {
-      // TODO: first ask for name...
-      setRoom(room)
+    if (room && name) {
+      answerCall({ room, name })
     }
-  }, [])
+  }, [answerCall, name])
 
   const handleSubmitName = useCallback((event: FormEvent) => {
     event.preventDefault()
     setName((event.target as any).elements.name.value)
   }, [])
-
-  const handleJoinRoom = useCallback((room: string) => {
-    // TODO: first ask for name...
-    setRoom(room)
-    setShowCreateRoom(false)
-  }, [])
-
-  const handleCall = useCallback((remotePeerId: string) => {
-    call(remotePeerId, name)
-    setPrivateCaller(remotePeerId)
-  }, [call, name])
-
-  const handleAcceptCall = useCallback(() => {
-    setHasPrivateCaller(undefined)
-    setPrivateCaller(hasPrivateCaller)
-  }, [hasPrivateCaller])
-
-  const handleDisconnect = useCallback(() => {
-    signalingChannel.disconnect()
-  }, [signalingChannel])
 
   return <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
     <AppBar position="static">
@@ -60,7 +41,7 @@ function App() {
         {name !== '' ? <Box sx={{ display: 'flex' }}>
           <Typography variant="h5">Welcome {name}</Typography>
           &nbsp;&nbsp;
-          <Button variant="contained" size="small" color="secondary" onClick={handleDisconnect} disabled={!isConnected}>Disconnect</Button>
+          <Button variant="contained" size="small" color="secondary" onClick={() => disconnect()} disabled={!isConnected}>Disconnect</Button>
         </Box> : <span />}
         <Box sx={{ display: 'flex', flexWrap: 'nowrap' }}>
           <Typography variant="body2">Server status:</Typography>
@@ -70,20 +51,18 @@ function App() {
       </Toolbar>
     </AppBar>
     <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-      {room !== '' ? name ? <Room room={room} name={name} onCall={handleCall} /> : <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }} component="form" autoComplete="off" onSubmit={handleSubmitName}>
+      {name ? room ? <Room room={room} name={name} onCall={handleCall} /> : <Button onClick={() => handleCall(undefined, true)} size="large" variant="contained" disabled={!isConnected}>Create room</Button> : <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }} component="form" autoComplete="off" onSubmit={handleSubmitName}>
         <TextField variant="filled" margin="normal" label="Your name" name="name" autoFocus role="presentation" autoComplete="off" />
         <Button variant="contained" size="large" type="submit">Join room</Button>
-      </Box> : <Button onClick={() => setShowCreateRoom(true)} size="large" variant="contained" disabled={!isConnected}>Create room</Button>}
+      </Box>}
     </Box>
-    <CreateRoom open={showCreateRoom} onJoinRoom={handleJoinRoom} onClose={() => setShowCreateRoom(false)} />
-    <PrivateCall open={Boolean(privateCaller)} room={privateCaller} onClose={() => setPrivateCaller(undefined)} />
     <Snackbar
-      open={Boolean(hasPrivateCaller)}
-      onClose={() => setHasPrivateCaller(undefined)}
+      open={Boolean(hasCall)}
+      onClose={() => setHasCall(undefined)}
       autoHideDuration={60000}
-      message="Someone is calling you"
+      message={`${hasCall?.name || 'Someone'} is calling you`}
       action={
-        <Button onClick={handleAcceptCall} color="success" size="small">
+        <Button onClick={handleAnswerCall} color="success" size="small">
           Accept
         </Button>
       }
