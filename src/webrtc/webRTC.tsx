@@ -233,7 +233,7 @@ export function useCall() {
   }
 }
 
-export type Room = ReturnType<typeof useCall>['room']
+export type Room = Exclude<ReturnType<typeof useCall>['room'], undefined>
 
 export function useOnCall(eventListener: (payload: RoomPayload & { [key: string]: any }) => void) {
   const { onCall, me } = useSignalingChannel()

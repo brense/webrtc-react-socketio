@@ -1,7 +1,8 @@
-import { Box, Button, FilledInput, Icon, IconButton, List, ListItem, ListItemText } from '@mui/material'
+import { Badge, Box, Button, FilledInput, Icon, IconButton, List, ListItem, ListItemText } from '@mui/material'
 import moment from 'moment'
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Room as WebRTCRoom, useOnChannelClose, useOnChannelOpen, useOnMessage, useOnTrack } from '../webrtc/webRTC'
+import RoomLink from './RoomLink'
 import RoomMembers, { Member } from './RoomMembers'
 
 function AudioStream({ stream, muted }: { stream: MediaProvider, muted: boolean }) {
@@ -25,7 +26,7 @@ type Message = {
   date: Date
 }
 
-function Room({ name, room: { name: roomName, sendMessage, addTrack, removeTrack }, onCall }: { name: string, room: Exclude<WebRTCRoom, undefined>, onCall: (remotePeerId: string) => void }) {
+function Room({ name, room: { name: roomName, sendMessage, addTrack, removeTrack }, onCall }: { name: string, room: WebRTCRoom, onCall: (remotePeerId: string) => void }) {
   const [members, setMembers] = useState<Member[]>([])
   const [muted, setMuted] = useState(false)
   const [showMembers, setShowMembers] = useState(false)
@@ -40,6 +41,8 @@ function Room({ name, room: { name: roomName, sendMessage, addTrack, removeTrack
       const exists = members.find(m => m.remotePeerId === remotePeerId)
       if (!exists) {
         setMembers(m => [...m, { remotePeerId, name: (data.message + '').replace(' has joined', '') }])
+      } else {
+        return
       }
     }
     // TODO: only show joined/left message when a member is new
@@ -113,7 +116,7 @@ function Room({ name, room: { name: roomName, sendMessage, addTrack, removeTrack
   }, [name, sendMessage])
 
   return <Box sx={{ height: '100%', width: '50%', maxWidth: 600, minWidth: 320, display: 'flex', flexDirection: 'column' }}>
-    <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
+    <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', justifyContent: 'flex-end' }}>
       <List>
         {messages.map(({ name, message, date }, index) => <ListItem key={index}>
           <Box component="code" sx={{ marginRight: 2 }}>{moment(date).format("HH:mm:ss")}</Box>
@@ -124,12 +127,13 @@ function Room({ name, room: { name: roomName, sendMessage, addTrack, removeTrack
     {Object.keys(audioSources).map(k => <AudioStream stream={audioSources[k]} muted={muted} key={k} />)}
     <Box sx={{ display: 'flex', paddingBottom: 3, alignItems: 'center' }} component="form" onSubmit={handleSendMessage} autoComplete="off">
       <FilledInput sx={{ marginRight: 1 }} name="message" fullWidth autoFocus role="presentation" autoComplete="off" />
+      <Button variant="contained" type="submit" sx={{ marginRight: 1 }}>Send</Button>
       <IconButton onClick={toggleAudio} sx={{ marginRight: 1 }}><Icon color={isRecording ? 'success' : 'inherit'}>mic</Icon></IconButton>
       <IconButton onClick={toggleAudioMuted} sx={{ marginRight: 1 }}><Icon color={hasAudio ? !muted ? 'success' : 'inherit' : 'disabled'}>{hasAudio && !muted ? 'volume_up' : 'volume_mute'}</Icon></IconButton>
-      <IconButton onClick={() => setShowMembers(true)} sx={{ marginRight: 1 }}><Icon>person</Icon></IconButton>
-      <Button variant="contained" type="submit">Send</Button>
+      <IconButton onClick={() => setShowMembers(true)} disabled={members.length === 0}><Badge badgeContent={members.length} color="primary"><Icon>person</Icon></Badge></IconButton>
     </Box>
     <RoomMembers members={members} onCall={handleCall} open={showMembers} onClose={() => setShowMembers(false)} />
+    <RoomLink open={members.length === 0} onClose={() => { }} room={roomName} />
   </Box>
 }
 

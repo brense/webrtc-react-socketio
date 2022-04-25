@@ -1,5 +1,5 @@
 import { AppBar, Box, Button, Icon, Snackbar, TextField, Toolbar, Typography } from '@mui/material'
-import { FormEvent, useCallback, useEffect, useState } from 'react'
+import { FormEvent, useCallback, useEffect, useRef, useState } from 'react'
 import Room from './components/Room'
 import { useSignalingChannel } from './webrtc'
 import { useCall, useOnCall } from './webrtc/webRTC'
@@ -9,14 +9,17 @@ function App() {
   const [name, setName] = useState('')
   const { isConnected, disconnect } = useSignalingChannel()
   const { makeCall, answerCall, room } = useCall()
+  const previousRoom = useRef<Exclude<typeof room, undefined>>()
 
   useOnCall(payload => setHasCall({ ...payload, name: payload.name }))
 
   const handleCall = useCallback((remotePeerId?: string, isBroadcast = false) => {
+    // TODO: make sure to remove tracks from room before making a new call
     makeCall(remotePeerId || null, { isBroadcast, name })
   }, [makeCall, name])
 
   const handleAnswerCall = useCallback(() => {
+    // TODO: make sure to remove tracks from room before answering a new call
     if (hasCall && name) {
       answerCall({ ...hasCall, name })
     }
@@ -53,7 +56,7 @@ function App() {
     <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
       {name ? room ? <Room room={room} name={name} onCall={handleCall} /> : <Button onClick={() => handleCall(undefined, true)} size="large" variant="contained" disabled={!isConnected}>Create room</Button> : <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }} component="form" autoComplete="off" onSubmit={handleSubmitName}>
         <TextField variant="filled" margin="normal" label="Your name" name="name" autoFocus role="presentation" autoComplete="off" />
-        <Button variant="contained" size="large" type="submit">Join room</Button>
+        <Button variant="contained" size="large" type="submit">Connect</Button>
       </Box>}
     </Box>
     <Snackbar
