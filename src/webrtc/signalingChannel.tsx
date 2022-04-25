@@ -23,7 +23,7 @@ export type CandidatePayload = {
 export type RoomPayload = {
   from: string
   room: string
-  isBroadcast?: boolean // the creator of the room is broadcasting and peers should only connect to the creator and not other peers in the room
+  isBroadcast?: boolean
 }
 
 
@@ -45,8 +45,8 @@ export function createIoSignalingChanel(uri: string, opts?: Partial<ManagerOptio
     subjects.onConnect.next(socket.id)
   })
 
-  socket.on('client', payload => subjects.onClient.next(payload)) // a new client has connected to the websocket
-  socket.on('call', payload => subjects.onCall.next(payload)) // a client is calling
+  socket.on('peer', payload => subjects.onClient.next(payload)) // a new peer has connected to the websocket
+  socket.on('call', payload => subjects.onCall.next(payload)) // a peer is calling
   socket.on('join', ({ isBroadcast = false, ...rest }: RoomPayload) => subjects.onJoin.next({ isBroadcast, ...rest })) // a peer wants to join a room or has created one
   socket.on('leave', payload => subjects.onLeave.next(payload)) // a peer has left a room or has disconnected
   socket.on('desc', payload => subjects.onSessionDescription.next(payload)) // receive a session description from another peer

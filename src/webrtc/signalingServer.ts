@@ -44,36 +44,40 @@ app.get(/^(?!\/socket.io).*$/, (req, res) => {
 
 const broadcasts: { [key: string]: string } = {}
 
-// socket listeners (https://socket.io/docs/v3/emit-cheatsheet/)
+// create websocket connection
 websocket.on('connection', socket => {
-  console.log(`client ${socket.id} connected`)
-  socket.broadcast.emit('client', { from: socket.id })
+  console.log(`peer ${socket.id} connected`)
+  // TODO: use handshake query to reassign a socket.id to an existing broadcast room? https://socket.io/docs/v4/client-options/#query
+  socket.broadcast.emit('peer', { from: socket.id })
 
-  // room create/join/leave events
-  socket.on('call', (payload?: { to?: string, isBroadcast?: boolean } & any) => {
+  // handle calls from peers (create room)
+  socket.on('call', (payload?: { to?: string, isBroadcast?: boolean, [key: string]: any }) => {
     const room = randomBytes(20).toString('hex')
-    console.log(`client ${socket.id} joined room ${room}`)
+    console.log(`peer ${socket.id} joined room ${room}`)
     socket.join(room)
     if (payload?.isBroadcast) {
       broadcasts[room] = socket.id // TODO: need to keep track of this when the socket disconnects and comes back this needs to change...
     }
-    if(payload?.to){
+    if (payload?.to) {
       websocket.to(payload.to).emit('call', { ...payload, room, from: socket.id })
     }
-    socket.emit('call', { ...payload, room, from: socket.id })
+    socket.emit('call', { ...payload, room, from: socket.id }) // TODO: emit jwt secret to reassign broadcast owner if the server disconnects
   })
+
+  // peer joining a room
   socket.on('join', payload => {
     socket.join(payload.room)
-    console.log(`client ${socket.id} joined room ${payload.room}`)
     const broadcaster = broadcasts[payload.room]
+    console.log(`peer ${socket.id} joined ${broadcaster ? 'broadcast' : 'call'} ${payload.room}`)
     if (broadcaster && socket.id !== broadcaster) {
-      console.log(`${socket.id} joining broadcast '${payload.room}'`)
       websocket.to(broadcaster).emit('join', { ...payload, from: socket.id })
-    } else if (!broadcaster) {
-      console.log('send join', payload)
+    } else if (!broadcaster || broadcaster === socket.id) {
+      // TODO: double check that join event is received by peers when a broadcaster returns to a previous broadcast
       socket.broadcast.to(payload.room).emit('join', { ...payload, from: socket.id })
     }
   })
+
+  // peer leaving a room
   socket.on('leave', payload => {
     socket.leave(payload.room)
     socket.broadcast.to(payload.room).emit('leave', { ...payload, from: socket.id })
@@ -83,7 +87,7 @@ websocket.on('connection', socket => {
     }
   })
 
-  // webrtc signaling events
+  // signaling offer/answer event
   socket.on('desc', payload => {
     const broadcaster = broadcasts[payload.room]
     if (broadcaster && socket.id !== broadcaster) {
@@ -92,6 +96,8 @@ websocket.on('connection', socket => {
       socket.broadcast.to(payload.to).emit('desc', { ...payload, from: socket.id })
     }
   })
+
+  // signaling candidate event
   socket.on('candidate', payload => {
     const broadcaster = broadcasts[payload.room]
     if (broadcaster && socket.id !== broadcaster) {
@@ -101,6 +107,7 @@ websocket.on('connection', socket => {
     }
   })
 
+  // handle socket disconnecting
   socket.on('disconnecting', () => {
     socket.rooms.forEach(room => {
       socket.broadcast.to(room).emit('leave', { from: socket.id, room })
@@ -111,9 +118,10 @@ websocket.on('connection', socket => {
     })
   })
 
+  // handle socket disconnected
   socket.on('disconnect', () => {
     socket.broadcast.emit('leave', { from: socket.id })
-    console.log(`client ${socket.id} disconnected`)
+    console.log(`peer ${socket.id} disconnected`)
   })
 })
 

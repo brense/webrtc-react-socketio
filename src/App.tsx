@@ -9,7 +9,7 @@ function App() {
   const [name, setName] = useState('')
   const { isConnected, disconnect } = useSignalingChannel()
   const { makeCall, answerCall, room } = useCall()
-  const previousRoom = useRef<Exclude<typeof room, undefined>>()
+  const previousRoom = useRef<Exclude<typeof room, undefined>>() // use previous room ref and answerCall to return to old room
 
   useOnCall(payload => setHasCall({ ...payload, name: payload.name }))
 
