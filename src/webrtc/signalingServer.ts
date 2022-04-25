@@ -28,7 +28,6 @@ app.use(express.json())
 app.use(express.urlencoded({ extended: false }))
 
 app.get(/^(?!\/socket.io).*$/, (req, res) => {
-  console.log('http request')
   if (path.extname(req.path) !== '') {
     const resolvedPath = path.resolve(__dirname, `.${req.path}`)
     if (fs.existsSync(resolvedPath)) {

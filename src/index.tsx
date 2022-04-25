@@ -11,25 +11,32 @@ import App from './App'
 
 moment.locale('nl')
 
+const urlParams = new URLSearchParams(window.location.search)
+const iceAddress = urlParams.get('iceaddress') || 'openrelay.metered.ca'
+const icePort = urlParams.get('iceport') || '80'
+const iceSshPort = urlParams.get('icesshport') || '443'
+const iceUser = urlParams.get('iceuser') || 'openrelayproject'
+const icePassword = urlParams.get('icepassword') || 'openrelayproject'
+
 const iceServers = [
   {
-    urls: "stun:openrelay.metered.ca:80",
+    urls: `stun:${iceAddress}:${icePort}`
   },
   {
-    urls: "turn:openrelay.metered.ca:80",
-    username: "openrelayproject",
-    credential: "openrelayproject",
+    urls: `turn:${iceAddress}:${icePort}`,
+    username: iceUser,
+    credential: icePassword
   },
   {
-    urls: "turn:openrelay.metered.ca:443",
-    username: "openrelayproject",
-    credential: "openrelayproject",
+    urls: `turn:${iceAddress}:${iceSshPort}`,
+    username: iceUser,
+    credential: icePassword
   },
   {
-    urls: "turn:openrelay.metered.ca:443?transport=tcp",
-    username: "openrelayproject",
-    credential: "openrelayproject",
-  },
+    urls: `turn:${iceAddress}:${iceSshPort}?transport=tcp`,
+    username: iceUser,
+    credential: icePassword
+  }
 ]
 
 const port = window.location.port || (window.location.protocol === 'https:' ? 443 : 80)

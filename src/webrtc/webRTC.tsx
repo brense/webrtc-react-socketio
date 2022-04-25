@@ -20,6 +20,8 @@ export function createWebRTCClient({ signalingChannel, ...configuration }: RTCCo
   signalingChannel.onCandidate.subscribe(receiveCandidate)
   signalingChannel.onLeave.subscribe(closeConnection)
 
+  // TODO: this name is misleading, it only sends an offer because of the onNegotiationNeeded listener in the getPeerConnection code
+  // TODO: should be more like: initDataChannel or initMediaTrack, etc...
   async function sendOffer({ from: remotePeerId, room }: RoomPayload) {
     const { connection, channel } = getPeerConnection(room, remotePeerId)
     if (!channel) {
