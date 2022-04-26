@@ -1,5 +1,6 @@
 import { CircularProgress, DialogActions, DialogContent, DialogTitle, Icon, IconButton, Typography } from '@mui/material'
 import { useCallback, useRef, useState } from 'react'
+import { useSignalingChannel } from '../webrtc'
 import { Room as WebRTCRoom, useOnChannelClose, useOnChannelOpen, useOnTrack } from '../webrtc/webRTC'
 
 function PrivateCall({ name, caller, room, onEndCall }: { name: string, room?: WebRTCRoom, caller?: { answered?: boolean, room: string, from: string, name: string | undefined }, onEndCall: () => void }) {
@@ -10,6 +11,7 @@ function PrivateCall({ name, caller, room, onEndCall }: { name: string, room?: W
   const [isRecording, setIsRecording] = useState(false)
   const audioRef = useRef<HTMLAudioElement>(null)
   const streamRef = useRef<MediaStream>()
+  const { me } = useSignalingChannel()
 
   const startRecording = useCallback(async () => {
     setIsRecording(true)
@@ -32,7 +34,8 @@ function PrivateCall({ name, caller, room, onEndCall }: { name: string, room?: W
   }, [room])
 
   useOnTrack(room?.name || '', ({ remotePeerId, track }) => {
-    if (audioRef.current) {
+    if (audioRef.current && remotePeerId !== me()) {
+      console.log('ADD AUDIO TRACK', remotePeerId, me())
       audioRef.current.srcObject = track.streams[0]
       setHasAudio(true)
       track.streams[0].onremovetrack = () => {
@@ -45,12 +48,10 @@ function PrivateCall({ name, caller, room, onEndCall }: { name: string, room?: W
   })
 
   useOnChannelOpen(room?.name || '', () => {
-    setMuted(false)
     setConnected(true)
     startRecording()
   })
   useOnChannelClose(room?.name || '', () => {
-    setMuted(true)
     setConnected(false)
     setHasLeft(true)
     stopRecording()
@@ -64,7 +65,12 @@ function PrivateCall({ name, caller, room, onEndCall }: { name: string, room?: W
   }, [stopRecording, onEndCall, room])
 
   const toggleAudioMuted = useCallback(() => {
-    setMuted(muted => !muted)
+    setMuted(muted => {
+      if (audioRef.current) {
+        audioRef.current.muted = !muted
+      }
+      return !muted
+    })
   }, [])
 
   return <>
@@ -76,7 +82,7 @@ function PrivateCall({ name, caller, room, onEndCall }: { name: string, room?: W
     </DialogContent>}
     <DialogActions sx={{ justifyContent: 'space-between' }}>
       <IconButton onClick={isRecording ? stopRecording : startRecording}><Icon color={isRecording ? 'success' : 'inherit'}>{isRecording ? 'mic' : 'mic_off'}</Icon></IconButton>
-      <IconButton onClick={toggleAudioMuted}><Icon color={hasAudio ? muted ? 'success' : 'inherit' : 'disabled'}>{hasAudio && !muted ? 'volume_up' : 'volume_off'}</Icon></IconButton>
+      <IconButton onClick={toggleAudioMuted}><Icon color={hasAudio ? !muted ? 'success' : 'inherit' : 'disabled'}>{hasAudio && !muted ? 'volume_up' : 'volume_off'}</Icon></IconButton>
       <IconButton onClick={handleOnClose}><Icon color="error">phone</Icon></IconButton>
     </DialogActions>
   </>
