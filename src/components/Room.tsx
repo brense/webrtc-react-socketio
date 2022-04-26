@@ -128,8 +128,8 @@ function Room({ name, room: { name: roomName, sendMessage, addTrack, removeTrack
     <Box sx={{ display: 'flex', paddingBottom: 3, alignItems: 'center' }} component="form" onSubmit={handleSendMessage} autoComplete="off">
       <FilledInput sx={{ marginRight: 1 }} name="message" fullWidth autoFocus role="presentation" autoComplete="off" />
       <Button variant="contained" type="submit" sx={{ marginRight: 1 }}>Send</Button>
-      <IconButton onClick={toggleAudio} sx={{ marginRight: 1 }}><Icon color={isRecording ? 'success' : 'inherit'}>{isRecording ? 'mic_off' : 'mic'}</Icon></IconButton>
-      <IconButton onClick={toggleAudioMuted} sx={{ marginRight: 1 }}><Icon color={hasAudio ? !muted ? 'success' : 'inherit' : 'disabled'}>{hasAudio && !muted ? 'volume_off' : 'volume_up'}</Icon></IconButton>
+      <IconButton onClick={toggleAudio} sx={{ marginRight: 1 }}><Icon color={isRecording ? 'success' : 'inherit'}>{isRecording ? 'mic' : 'mic_off'}</Icon></IconButton>
+      <IconButton onClick={toggleAudioMuted} sx={{ marginRight: 1 }}><Icon color={hasAudio ? !muted ? 'success' : 'inherit' : 'disabled'}>{hasAudio && !muted ? 'volume_up' : 'volume_off'}</Icon></IconButton>
       <IconButton onClick={() => setShowMembers(true)} disabled={members.length === 0}><Badge badgeContent={members.length} color="primary"><Icon>person</Icon></Badge></IconButton>
     </Box>
     <RoomMembers members={members} onCall={handleCall} open={showMembers} onClose={() => setShowMembers(false)} />

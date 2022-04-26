@@ -75,9 +75,9 @@ function PrivateCall({ name, caller, room, onEndCall }: { name: string, room?: W
       <CircularProgress variant="indeterminate" />
     </DialogContent>}
     <DialogActions sx={{ justifyContent: 'space-between' }}>
-      <IconButton onClick={isRecording ? stopRecording : startRecording}><Icon color={isRecording ? 'success' : 'inherit'}>{isRecording ? 'mic_off' : 'mic'}</Icon></IconButton>
-      <IconButton onClick={toggleAudioMuted}><Icon color={hasAudio ? muted ? 'success' : 'inherit' : 'disabled'}>{hasAudio && !muted ? 'volume_off' : 'volume_up'}</Icon></IconButton>
-      <IconButton onClick={handleOnClose}><Icon color="error">phone_disabled</Icon></IconButton>
+      <IconButton onClick={isRecording ? stopRecording : startRecording}><Icon color={isRecording ? 'success' : 'inherit'}>{isRecording ? 'mic' : 'mic_off'}</Icon></IconButton>
+      <IconButton onClick={toggleAudioMuted}><Icon color={hasAudio ? muted ? 'success' : 'inherit' : 'disabled'}>{hasAudio && !muted ? 'volume_up' : 'volume_off'}</Icon></IconButton>
+      <IconButton onClick={handleOnClose}><Icon color="error">phone</Icon></IconButton>
     </DialogActions>
   </>
 }
