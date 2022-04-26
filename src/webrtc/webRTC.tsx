@@ -151,8 +151,12 @@ export function createWebRTCClient({ signalingChannel, ...configuration }: RTCCo
   function removeTrack(room: string) {
     connections.filter(c => c.room === room).forEach(({ connection, sender }, i) => {
       if (sender) {
-        connection.removeTrack(sender)
-        connections[i].sender = undefined
+        try {
+          connection.removeTrack(sender)
+          connections[i].sender = undefined
+        } catch (e) {
+          // error
+        }
       }
     })
   }

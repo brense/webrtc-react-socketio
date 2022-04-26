@@ -26,7 +26,7 @@ type Message = {
   date: Date
 }
 
-function Room({ name, room: { name: roomName, sendMessage, addTrack, removeTrack }, onCall }: { name: string, room: WebRTCRoom, onCall: (remotePeerId: string) => void }) {
+function Room({ name, room: { name: roomName, sendMessage, addTrack, removeTrack }, onCall }: { name: string, room: WebRTCRoom, onCall: (payload: { name: string, remotePeerId: string }) => void }) {
   const [members, setMembers] = useState<Member[]>([])
   const [muted, setMuted] = useState(false)
   const [showMembers, setShowMembers] = useState(false)
@@ -99,9 +99,9 @@ function Room({ name, room: { name: roomName, sendMessage, addTrack, removeTrack
     setMuted(muted => !muted)
   }, [])
 
-  const handleCall = useCallback((remotePeerId: string) => {
+  const handleCall = useCallback(({ remotePeerId, name }: { name: string, remotePeerId: string }) => {
     setShowMembers(false)
-    onCall(remotePeerId)
+    onCall({ name, remotePeerId })
   }, [onCall])
 
   const handleSendMessage = useCallback((event: FormEvent) => {
@@ -128,8 +128,8 @@ function Room({ name, room: { name: roomName, sendMessage, addTrack, removeTrack
     <Box sx={{ display: 'flex', paddingBottom: 3, alignItems: 'center' }} component="form" onSubmit={handleSendMessage} autoComplete="off">
       <FilledInput sx={{ marginRight: 1 }} name="message" fullWidth autoFocus role="presentation" autoComplete="off" />
       <Button variant="contained" type="submit" sx={{ marginRight: 1 }}>Send</Button>
-      <IconButton onClick={toggleAudio} sx={{ marginRight: 1 }}><Icon color={isRecording ? 'success' : 'inherit'}>mic</Icon></IconButton>
-      <IconButton onClick={toggleAudioMuted} sx={{ marginRight: 1 }}><Icon color={hasAudio ? !muted ? 'success' : 'inherit' : 'disabled'}>{hasAudio && !muted ? 'volume_up' : 'volume_mute'}</Icon></IconButton>
+      <IconButton onClick={toggleAudio} sx={{ marginRight: 1 }}><Icon color={isRecording ? 'success' : 'inherit'}>{isRecording ? 'mic_off' : 'mic'}</Icon></IconButton>
+      <IconButton onClick={toggleAudioMuted} sx={{ marginRight: 1 }}><Icon color={hasAudio ? !muted ? 'success' : 'inherit' : 'disabled'}>{hasAudio && !muted ? 'volume_off' : 'volume_up'}</Icon></IconButton>
       <IconButton onClick={() => setShowMembers(true)} disabled={members.length === 0}><Badge badgeContent={members.length} color="primary"><Icon>person</Icon></Badge></IconButton>
     </Box>
     <RoomMembers members={members} onCall={handleCall} open={showMembers} onClose={() => setShowMembers(false)} />
