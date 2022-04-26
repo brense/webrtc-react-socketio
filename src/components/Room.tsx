@@ -26,7 +26,7 @@ type Message = {
   date: Date
 }
 
-function Room({ name, room: { name: roomName, sendMessage, addTrack, removeTrack }, onCall }: { name: string, room: WebRTCRoom, onCall: (remotePeerId: string) => void }) {
+function Room({ name, room: { name: roomName, sendMessage, addTrack, removeTrack }, onCall }: { name: string, room: WebRTCRoom, onCall: (payload: { name: string, remotePeerId: string }) => void }) {
   const [members, setMembers] = useState<Member[]>([])
   const [muted, setMuted] = useState(false)
   const [showMembers, setShowMembers] = useState(false)
@@ -99,9 +99,9 @@ function Room({ name, room: { name: roomName, sendMessage, addTrack, removeTrack
     setMuted(muted => !muted)
   }, [])
 
-  const handleCall = useCallback((remotePeerId: string) => {
+  const handleCall = useCallback(({ remotePeerId, name }: { name: string, remotePeerId: string }) => {
     setShowMembers(false)
-    onCall(remotePeerId)
+    onCall({ name, remotePeerId })
   }, [onCall])
 
   const handleSendMessage = useCallback((event: FormEvent) => {
