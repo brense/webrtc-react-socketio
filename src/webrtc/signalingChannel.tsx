@@ -28,6 +28,7 @@ export type RoomPayload = {
 
 
 const subjects = {
+  onBroadcasts: new Subject<{ [key: string]: string }>(),
   onConnect: new Subject<string>(),
   onDisconnect: new Subject(),
   onClient: new Subject<ClientPayload>(),
@@ -51,6 +52,7 @@ export function createIoSignalingChanel(uri: string, opts?: Partial<ManagerOptio
   socket.on('leave', payload => subjects.onLeave.next(payload)) // a peer has left a room or has disconnected
   socket.on('desc', payload => subjects.onSessionDescription.next(payload)) // receive a session description from another peer
   socket.on('candidate', payload => subjects.onCandidate.next(payload)) // receive an icecandidate from another peer
+  socket.on('broadcasts', payload => subjects.onBroadcasts.next(payload)) // update list of broadcasts
 
   socket.on('disconnect', () => {
     subjects.onDisconnect.next(undefined)
