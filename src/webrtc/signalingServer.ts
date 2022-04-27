@@ -5,7 +5,7 @@ import express from 'express'
 import http from 'http'
 import path from 'path'
 import fs from 'fs'
-import { Server as WebSocketServer } from 'socket.io'
+import { Server as WebSocketServer, Socket } from 'socket.io'
 import { randomBytes } from 'crypto'
 
 // parse process args
@@ -48,6 +48,7 @@ websocket.on('connection', socket => {
   console.log(`peer ${socket.id} connected`)
   // TODO: use handshake query to reassign a socket.id to an existing broadcast room? https://socket.io/docs/v4/client-options/#query
   socket.broadcast.emit('peer', { from: socket.id })
+  socket.emit('broadcasts', broadcasts)
 
   // handle calls from peers (create room)
   socket.on('call', (payload?: { to?: string, isBroadcast?: boolean, [key: string]: any }) => {
@@ -56,6 +57,7 @@ websocket.on('connection', socket => {
     socket.join(room)
     if (payload?.isBroadcast) {
       broadcasts[room] = socket.id // TODO: need to keep track of this when the socket disconnects and comes back this needs to change...
+      websocket.emit('broadcasts', broadcasts)
     }
     if (payload?.to) {
       websocket.to(payload.to).emit('call', { ...payload, room, from: socket.id })
@@ -71,19 +73,16 @@ websocket.on('connection', socket => {
     if (broadcaster && socket.id !== broadcaster) {
       websocket.to(broadcaster).emit('join', { ...payload, from: socket.id })
     } else if (!broadcaster || broadcaster === socket.id) {
-      // TODO: double check that join event is received by peers when a broadcaster returns to a previous broadcast
+      // TODO: double check that join event is received by peers when a broadcaster returns to a previous broadcast and that they create a peer connection with datachannel and send an offer
       socket.broadcast.to(payload.room).emit('join', { ...payload, from: socket.id })
     }
   })
 
   // peer leaving a room
   socket.on('leave', payload => {
+    removeAbandonedBroadcasts(socket)
     socket.leave(payload.room)
     socket.broadcast.to(payload.room).emit('leave', { ...payload, from: socket.id })
-    const match = findAbandonedBroadcasts(socket.id)
-    if (match) {
-      delete broadcasts[match]
-    }
   })
 
   // signaling offer/answer event
@@ -110,10 +109,7 @@ websocket.on('connection', socket => {
   socket.on('disconnecting', () => {
     socket.rooms.forEach(room => {
       socket.broadcast.to(room).emit('leave', { from: socket.id, room })
-      const match = findAbandonedBroadcasts(socket.id)
-      if (match) {
-        delete broadcasts[match]
-      }
+      removeAbandonedBroadcasts(socket)
     })
   })
 
@@ -124,8 +120,15 @@ websocket.on('connection', socket => {
   })
 })
 
-function findAbandonedBroadcasts(broadcaster: string) {
-  return Object.keys(broadcasts).find(r => broadcasts[r] === broadcaster)
+function removeAbandonedBroadcasts(socket: Socket) {
+  socket.rooms.forEach(roomName => {
+    const room = websocket.sockets.adapter.rooms.get(roomName)
+    if (room && room.size === 1 && broadcasts[roomName]) {
+      console.log('removing broadcast room', roomName)
+      delete broadcasts[roomName]
+      websocket.emit('broadcasts', broadcasts)
+    }
+  })
 }
 
 // start the server

@@ -2,7 +2,6 @@ import { Badge, Box, Button, FilledInput, Icon, IconButton, List, ListItem, List
 import moment from 'moment'
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Room as WebRTCRoom, useOnChannelClose, useOnChannelOpen, useOnMessage, useOnTrack } from '../webrtc/webRTC'
-import RoomLink from './RoomLink'
 import RoomMembers, { Member } from './RoomMembers'
 
 function AudioStream({ stream, muted }: { stream: MediaProvider, muted: boolean }) {
@@ -26,7 +25,7 @@ type Message = {
   date: Date
 }
 
-function Room({ name, room: { name: roomName, sendMessage, addTrack, removeTrack }, onCall }: { name: string, room: WebRTCRoom, onCall: (payload: { name: string, remotePeerId: string }) => void }) {
+function Room({ name, room: { name: roomName, sendMessage, addTrack, removeTrack }, onCall, onLeave }: { name: string, room: WebRTCRoom, onLeave: () => void, onCall: (payload: { name: string, remotePeerId: string }) => void }) {
   const [members, setMembers] = useState<Member[]>([])
   const [muted, setMuted] = useState(false)
   const [showMembers, setShowMembers] = useState(false)
@@ -131,9 +130,9 @@ function Room({ name, room: { name: roomName, sendMessage, addTrack, removeTrack
       <IconButton onClick={toggleAudio} sx={{ marginRight: 1 }}><Icon color={isRecording ? 'success' : 'inherit'}>{isRecording ? 'mic' : 'mic_off'}</Icon></IconButton>
       <IconButton onClick={toggleAudioMuted} sx={{ marginRight: 1 }}><Icon color={hasAudio ? !muted ? 'success' : 'inherit' : 'disabled'}>{hasAudio && !muted ? 'volume_up' : 'volume_off'}</Icon></IconButton>
       <IconButton onClick={() => setShowMembers(true)} disabled={members.length === 0}><Badge badgeContent={members.length} color="primary"><Icon>person</Icon></Badge></IconButton>
+      <IconButton onClick={onLeave}><Icon color="error" fontSize="large">phone</Icon></IconButton>
     </Box>
     <RoomMembers members={members} onCall={handleCall} open={showMembers} onClose={() => setShowMembers(false)} />
-    <RoomLink open={members.length === 0} onClose={() => { }} room={roomName} />
   </Box>
 }
 
