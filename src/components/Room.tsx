@@ -35,6 +35,11 @@ function Room({ name, room: { name: roomName, sendMessage, addTrack, removeTrack
   const [messages, setMessages] = useState<Message[]>([])
   const streamRef = useRef<MediaStream>()
 
+  // always clear all audio sources when the room changes
+  useEffect(() => {
+    setAudioSources({})
+  }, [roomName])
+
   useOnMessage(roomName, ({ remotePeerId, ...data }) => {
     if (data.name === 'System' && (data.message + '').indexOf('has joined') >= 0) {
       const exists = members.find(m => m.remotePeerId === remotePeerId)
@@ -44,12 +49,10 @@ function Room({ name, room: { name: roomName, sendMessage, addTrack, removeTrack
         return
       }
     }
-    // TODO: only show joined/left message when a member is new
     setMessages(messages => [...messages, data as unknown as Message])
   })
 
   useOnTrack(roomName, ({ remotePeerId, track }) => {
-    console.log('received track', track, remotePeerId)
     setAudioSources(sources => ({ ...sources, [remotePeerId]: track.streams[0] }))
     track.streams[0].onremovetrack = () => {
       setAudioSources(sources => {

@@ -222,9 +222,14 @@ export function useCall() {
   }, [join])
 
   const handleLeaveRoom = useCallback(() => {
-    setRoom(undefined)
-    room ? leave({ room }) : console.warn('You need to make a call before the room can be left')
-  }, [room, leave])
+    if (room) {
+      removeTrack(room)
+      leave({ room })
+      setRoom(undefined)
+    } else {
+      console.warn('You need to make a call before the room can be left')
+    }
+  }, [room, leave, removeTrack])
   const handleSendMessage = useCallback((message: { [key: string]: any }) => room ? sendMessage(room, message) : console.warn('You need to make a call before you can send a message'), [room, sendMessage])
   const handleAddTrack = useCallback((track: MediaStreamTrack, ...streams: MediaStream[]) => room ? addTrack(room, track, ...streams) : console.warn('You need to make a call before you can add a track'), [room, addTrack])
   const handleRemoveTrack = useCallback(() => room ? removeTrack(room) : console.warn('You need to make a call before you can remove track'), [room, removeTrack])

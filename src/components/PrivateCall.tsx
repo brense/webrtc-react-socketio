@@ -1,17 +1,13 @@
 import { CircularProgress, DialogActions, DialogContent, DialogTitle, Icon, IconButton, Typography } from '@mui/material'
 import { useCallback, useRef, useState } from 'react'
-import { useSignalingChannel } from '../webrtc'
-import { Room as WebRTCRoom, useOnChannelClose, useOnChannelOpen, useOnTrack } from '../webrtc/webRTC'
+import { Room as WebRTCRoom, useOnChannelClose, useOnChannelOpen } from '../webrtc/webRTC'
 
-function PrivateCall({ name, caller, room, onEndCall }: { name: string, room?: WebRTCRoom, caller?: { answered?: boolean, room: string, from: string, name: string | undefined }, onEndCall: () => void }) {
+function PrivateCall({ caller, room, onEndCall }: { room?: WebRTCRoom, caller?: { answered?: boolean, room: string, from: string, name: string | undefined }, onEndCall: () => void }) {
   const [connected, setConnected] = useState(false)
   const [hasLeft, setHasLeft] = useState(false)
-  const [muted, setMuted] = useState(false)
-  const [hasAudio, setHasAudio] = useState(false)
   const [isRecording, setIsRecording] = useState(false)
   const audioRef = useRef<HTMLAudioElement>(null)
   const streamRef = useRef<MediaStream>()
-  const { me } = useSignalingChannel()
 
   const startRecording = useCallback(async () => {
     setIsRecording(true)
@@ -33,20 +29,6 @@ function PrivateCall({ name, caller, room, onEndCall }: { name: string, room?: W
     }
   }, [room])
 
-  useOnTrack(room?.name || '', ({ remotePeerId, track }) => {
-    if (audioRef.current && remotePeerId !== me()) {
-      console.log('ADD AUDIO TRACK', remotePeerId, me())
-      audioRef.current.srcObject = track.streams[0]
-      setHasAudio(true)
-      track.streams[0].onremovetrack = () => {
-        if (audioRef.current) {
-          setHasAudio(false)
-          audioRef.current.srcObject = null
-        }
-      }
-    }
-  })
-
   useOnChannelOpen(room?.name || '', () => {
     setConnected(true)
     startRecording()
@@ -58,20 +40,10 @@ function PrivateCall({ name, caller, room, onEndCall }: { name: string, room?: W
   })
 
   const handleOnClose = useCallback(() => {
-    room?.leaveRoom()
-    setMuted(true)
     stopRecording()
+    room?.leaveRoom()
     onEndCall()
   }, [stopRecording, onEndCall, room])
-
-  const toggleAudioMuted = useCallback(() => {
-    setMuted(muted => {
-      if (audioRef.current) {
-        audioRef.current.muted = !muted
-      }
-      return !muted
-    })
-  }, [])
 
   return <>
     <DialogTitle>{connected ? 'In call with' : 'Calling'} {caller?.name}</DialogTitle>
@@ -82,8 +54,7 @@ function PrivateCall({ name, caller, room, onEndCall }: { name: string, room?: W
     </DialogContent>}
     <DialogActions sx={{ justifyContent: 'space-between' }}>
       <IconButton onClick={isRecording ? stopRecording : startRecording}><Icon color={isRecording ? 'success' : 'inherit'}>{isRecording ? 'mic' : 'mic_off'}</Icon></IconButton>
-      <IconButton onClick={toggleAudioMuted}><Icon color={hasAudio ? !muted ? 'success' : 'inherit' : 'disabled'}>{hasAudio && !muted ? 'volume_up' : 'volume_off'}</Icon></IconButton>
-      <IconButton onClick={handleOnClose}><Icon color="error">phone</Icon></IconButton>
+      <IconButton onClick={handleOnClose}><Icon color="error" fontSize="large">phone</Icon></IconButton>
     </DialogActions>
   </>
 }
