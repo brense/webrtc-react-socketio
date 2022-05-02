@@ -9,7 +9,8 @@ const {
   ICE_PORT = '80',
   ICE_SSH_PORT = '443',
   ICE_USER = 'openrelayproject',
-  ICE_CREDENTIAL = 'openrelayproject'
+  ICE_CREDENTIAL = 'openrelayproject',
+  PORT = '3001'
 } = process.env
 
 export const iceServers = [
@@ -26,7 +27,7 @@ export const { port } = yargs.options({
   'port': {
     alias: 'p',
     type: 'number',
-    default: 3001
+    default: Number(PORT)
   }
 }).argv
 
