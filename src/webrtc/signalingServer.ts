@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
 import jwt from 'jsonwebtoken'
-import { websocket, httpServer, handleCall, handleJoin, handleLeave, removeAbandonedBroadcasts, handleDescription, handleCandidate, attemptRejoinRoom } from './server'
 import { iceServers, port, broadcasts } from './server/config'
+import { websocket, httpServer, handleCall, handleJoin, handleLeave, removeAbandonedBroadcasts, handleDescription, handleCandidate, attemptRejoinRoom } from './server'
 
 // create websocket connection
 websocket.on('connection', socket => {
