@@ -157,9 +157,8 @@ function attemptRejoinRoom(socket: Socket) {
   return (error: jwt.VerifyErrors | null, decoded?: string | jwt.JwtPayload) => {
     if (!error && decoded) {
       const { room, peerId } = decoded as { room: string, peerId?: string }
-      if (peerId && broadcasts[peerId] && broadcasts[peerId] === room) {
-        broadcasts[socket.id] = room
-        delete broadcasts[peerId]
+      if (peerId && (!broadcasts[room] || broadcasts[room] === peerId)) {
+        broadcasts[room] = socket.id
       }
       socket.join(room)
     }
