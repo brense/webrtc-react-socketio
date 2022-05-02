@@ -41,12 +41,14 @@ const subjects = {
 }
 
 export function createIoSignalingChanel(uri: string, opts?: Partial<ManagerOptions & SocketOptions> | undefined) {
-  const socket = io(uri, opts)
+  let recoveryToken: string | undefined = undefined
+  const socket = io(uri, { ...opts, query: { ...opts?.query, recoveryToken } })
   socket.on('connect', () => {
     console.log(`Connected to websocket, localPeerId: ${socket.id}`)
     subjects.onConnect.next(socket.id)
   })
 
+  socket.on('recovery', payload => (recoveryToken = payload)) // store recovery token
   socket.on('peer', payload => subjects.onClient.next(payload)) // a new peer has connected to the websocket
   socket.on('config', payload => subjects.onConfig.next(payload)) // received ice servers from the server
   socket.on('call', payload => subjects.onCall.next(payload)) // a peer is calling
