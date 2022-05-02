@@ -42,9 +42,9 @@ const subjects = {
 
 export function createIoSignalingChanel(uri: string, opts?: Partial<ManagerOptions & SocketOptions> | undefined) {
   let recoveryToken: string | undefined = undefined
-  const socket = io(uri, { ...opts, query: { ...opts?.query, recoveryToken } }) // TODO: check if the query is actually send with new values when reconnecting
+  const socket = io(uri, { ...opts, query: { ...opts?.query, recoveryToken } })
   socket.io.on('reconnect_attempt', () => {
-    socket.io.opts.query = { ...socket.io.opts.query, recoveryToken } // TODO: check if this does anything at all...
+    socket.io.opts.query = { ...socket.io.opts.query, recoveryToken }
   })
   socket.on('connect', () => {
     console.log(`Connected to websocket, localPeerId: ${socket.id}`)
