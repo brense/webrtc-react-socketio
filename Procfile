@@ -1,1 +1,1 @@
-web: npx copyfiles -u 1 dist/**/* build && npm run deploy
+web: cp dist/signalingServer.js build && npm run deploy
