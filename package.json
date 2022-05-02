@@ -6,6 +6,7 @@
     "@emotion/react": "^11.9.0",
     "@emotion/styled": "^11.8.1",
     "@mui/material": "^5.6.0",
+    "dotenv": "^16.0.0",
     "express": "^4.17.3",
     "jsonwebtoken": "^8.5.1",
     "moment": "^2.29.2",
@@ -16,14 +17,15 @@
     "socket.io": "^4.4.1",
     "socket.io-client": "^4.4.1",
     "web-vitals": "^2.1.4",
-    "yargs": "^17.4.0",
-    "dotenv": "^16.0.0"
+    "yargs": "^17.4.0"
   },
   "scripts": {
     "start": "react-scripts start",
     "start:server": "ts-node-dev --project ./tsconfig.server.json ./src/webrtc/signalingServer.ts",
     "build:app": "react-scripts build",
-    "build": "rimraf dist && rimraf build && npm run build:app && tsc --p tsconfig.server.json && copyfiles -u 1 dist/**/* build",
+    "prebuild": "rimraf dist && rimraf build",
+    "build": "npm run build:app && tsc --p tsconfig.server.json",
+    "postbuild": "npx copyfiles -u 1 dist/**/* build",
     "deploy": "node ./build/signalingServer.js",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
