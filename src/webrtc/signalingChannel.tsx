@@ -42,7 +42,10 @@ const subjects = {
 
 export function createIoSignalingChanel(uri: string, opts?: Partial<ManagerOptions & SocketOptions> | undefined) {
   let recoveryToken: string | undefined = undefined
-  const socket = io(uri, { ...opts, query: { ...opts?.query, recoveryToken } })
+  const socket = io(uri, { ...opts, query: { ...opts?.query, recoveryToken } }) // TODO: check if the query is actually send with new values when reconnecting
+  socket.io.on('reconnect_attempt', () => {
+    socket.io.opts.query = { ...socket.io.opts.query, recoveryToken } // TODO: check if this does anything at all...
+  })
   socket.on('connect', () => {
     console.log(`Connected to websocket, localPeerId: ${socket.id}`)
     subjects.onConnect.next(socket.id)
@@ -66,11 +69,17 @@ export function createIoSignalingChanel(uri: string, opts?: Partial<ManagerOptio
     ...subjects,
     me: () => socket.id,
     connect: () => !socket.connected && socket.connect(),
-    disconnect: () => socket.close(),
+    disconnect: () => {
+      recoveryToken = undefined
+      socket.close()
+    },
     createRoom: (payload: { isBroadcast: boolean }) => socket.emit('call', payload),
     makeCall: (payload: { to?: string, isBroadcast: boolean, [key: string]: any }) => socket.emit('call', payload),
     join: (payload: Omit<RoomPayload, 'from'> & { [key: string]: any }) => socket.emit('join', payload),
-    leave: (payload: Omit<RoomPayload, 'from'>) => socket.emit('leave', payload),
+    leave: (payload: Omit<RoomPayload, 'from'>) => {
+      recoveryToken = undefined
+      socket.emit('leave', payload)
+    },
     sendSessionDescription: (sessionDescription: Omit<SessionDescriptionPayload, 'from'>) => socket.emit('desc', sessionDescription),
     sendCandidate: (iceCandidate: Omit<CandidatePayload, 'from'>) => socket.emit('candidate', iceCandidate)
   }
