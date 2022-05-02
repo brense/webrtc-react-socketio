@@ -7,6 +7,9 @@ import path from 'path'
 import fs from 'fs'
 import { Server as WebSocketServer, Socket } from 'socket.io'
 import { randomBytes } from 'crypto'
+import dotenv from 'dotenv'
+
+dotenv.config()
 
 // parse process args
 const { port } = yargs.options({
@@ -16,6 +19,22 @@ const { port } = yargs.options({
     default: 3001
   }
 }).argv
+
+// turn server config object for client
+const {
+  ICE_ADDRESS = 'openrelay.metered.ca',
+  ICE_PORT = '80',
+  ICE_SSH_PORT = '443',
+  ICE_USER = 'openrelayproject',
+  ICE_CREDENTIAL = 'openrelayproject'
+} = process.env
+
+const iceServers = [
+  { urls: `stun:${ICE_ADDRESS}:${ICE_PORT}` },
+  { urls: `turn:${ICE_ADDRESS}:${ICE_PORT}`, username: ICE_USER, credential: ICE_CREDENTIAL },
+  { urls: `turn:${ICE_ADDRESS}:${ICE_SSH_PORT}`, username: ICE_USER, credential: ICE_CREDENTIAL },
+  { urls: `turn:${ICE_ADDRESS}:${ICE_SSH_PORT}?transport=tcp`, username: ICE_USER, credential: ICE_CREDENTIAL }
+]
 
 // prepare websocket server
 const app = express()
@@ -45,15 +64,16 @@ const broadcasts: { [key: string]: string } = {}
 
 // create websocket connection
 websocket.on('connection', socket => {
-  console.log(`peer ${socket.id} connected`)
+  console.info(`peer ${socket.id} connected`)
   // TODO: use handshake query to reassign a socket.id to an existing broadcast room? https://socket.io/docs/v4/client-options/#query
   socket.broadcast.emit('peer', { from: socket.id })
   socket.emit('broadcasts', broadcasts)
+  socket.emit('config', iceServers)
 
   // handle calls from peers (create room)
   socket.on('call', (payload?: { to?: string, isBroadcast?: boolean, [key: string]: any }) => {
     const room = randomBytes(20).toString('hex')
-    console.log(`peer ${socket.id} joined room ${room}`)
+    console.info(`peer ${socket.id} joined room ${room}`)
     socket.join(room)
     if (payload?.isBroadcast) {
       broadcasts[room] = socket.id // TODO: need to keep track of this when the socket disconnects and comes back this needs to change...
@@ -67,13 +87,12 @@ websocket.on('connection', socket => {
 
   // peer joining a room
   socket.on('join', payload => {
-    socket.join(payload.room)
+    socket.join(payload.room) // TODO: check jwt of broadcaster if they rejoin an old removed broadcast, re add to broadcasts
     const broadcaster = broadcasts[payload.room]
-    console.log(`peer ${socket.id} joined ${broadcaster ? 'broadcast' : 'call'} ${payload.room}`)
+    console.info(`peer ${socket.id} joined ${broadcaster ? 'broadcast' : 'call'} ${payload.room}`)
     if (broadcaster && socket.id !== broadcaster) {
       websocket.to(broadcaster).emit('join', { ...payload, from: socket.id })
     } else if (!broadcaster || broadcaster === socket.id) {
-      // TODO: double check that join event is received by peers when a broadcaster returns to a previous broadcast and that they create a peer connection with datachannel and send an offer
       socket.broadcast.to(payload.room).emit('join', { ...payload, from: socket.id })
     }
   })
@@ -116,7 +135,7 @@ websocket.on('connection', socket => {
   // handle socket disconnected
   socket.on('disconnect', () => {
     socket.broadcast.emit('leave', { from: socket.id })
-    console.log(`peer ${socket.id} disconnected`)
+    console.info(`peer ${socket.id} disconnected`)
   })
 })
 
@@ -124,7 +143,7 @@ function removeAbandonedBroadcasts(socket: Socket) {
   socket.rooms.forEach(roomName => {
     const room = websocket.sockets.adapter.rooms.get(roomName)
     if (room && room.size === 1 && broadcasts[roomName]) {
-      console.log('removing broadcast room', roomName)
+      console.info('removing broadcast room', roomName)
       delete broadcasts[roomName]
       websocket.emit('broadcasts', broadcasts)
     }

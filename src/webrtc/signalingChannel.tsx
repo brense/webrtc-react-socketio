@@ -36,7 +36,8 @@ const subjects = {
   onJoin: new Subject<RoomPayload>(),
   onLeave: new Subject<Omit<RoomPayload, 'room'> & { room?: string }>(),
   onSessionDescription: new Subject<SessionDescriptionPayload>(),
-  onCandidate: new Subject<CandidatePayload>()
+  onCandidate: new Subject<CandidatePayload>(),
+  onConfig: new Subject<RTCIceServer[]>()
 }
 
 export function createIoSignalingChanel(uri: string, opts?: Partial<ManagerOptions & SocketOptions> | undefined) {
@@ -47,6 +48,7 @@ export function createIoSignalingChanel(uri: string, opts?: Partial<ManagerOptio
   })
 
   socket.on('peer', payload => subjects.onClient.next(payload)) // a new peer has connected to the websocket
+  socket.on('config', payload => subjects.onConfig.next(payload)) // received ice servers from the server
   socket.on('call', payload => subjects.onCall.next(payload)) // a peer is calling
   socket.on('join', ({ isBroadcast = false, ...rest }: RoomPayload) => subjects.onJoin.next({ isBroadcast, ...rest })) // a peer wants to join a room or has created one
   socket.on('leave', payload => subjects.onLeave.next(payload)) // a peer has left a room or has disconnected

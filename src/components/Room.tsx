@@ -1,4 +1,4 @@
-import { Badge, Box, Button, FilledInput, Icon, IconButton, List, ListItem, ListItemText } from '@mui/material'
+import { Badge, Box, Button, FilledInput, Icon, IconButton, List, ListItem, ListItemText, Typography } from '@mui/material'
 import moment from 'moment'
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Room as WebRTCRoom, useOnChannelClose, useOnChannelOpen, useOnMessage, useOnTrack } from '../webrtc/webRTC'
@@ -121,7 +121,7 @@ function Room({ name, room: { name: roomName, sendMessage, addTrack, removeTrack
     <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', justifyContent: 'flex-end' }}>
       <List>
         {messages.map(({ name, message, date }, index) => <ListItem key={index}>
-          <Box component="code" sx={{ marginRight: 2 }}>{moment(date).format("HH:mm:ss")}</Box>
+          <Typography component="code" variant="body2" sx={{ marginRight: 2, fontFamily: '\'Roboto Mono\', monospace', fontWeight: 400 }}>{moment(date).format("HH:mm:ss")}</Typography>
           <ListItemText primary={name} secondary={message} />
         </ListItem>)}
       </List>
