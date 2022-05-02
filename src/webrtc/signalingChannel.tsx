@@ -36,17 +36,24 @@ const subjects = {
   onJoin: new Subject<RoomPayload>(),
   onLeave: new Subject<Omit<RoomPayload, 'room'> & { room?: string }>(),
   onSessionDescription: new Subject<SessionDescriptionPayload>(),
-  onCandidate: new Subject<CandidatePayload>()
+  onCandidate: new Subject<CandidatePayload>(),
+  onConfig: new Subject<RTCIceServer[]>()
 }
 
 export function createIoSignalingChanel(uri: string, opts?: Partial<ManagerOptions & SocketOptions> | undefined) {
-  const socket = io(uri, opts)
+  let recoveryToken: string | undefined = undefined
+  const socket = io(uri, { ...opts, query: { ...opts?.query, recoveryToken } })
+  socket.io.on('reconnect_attempt', () => {
+    socket.io.opts.query = { ...socket.io.opts.query, recoveryToken }
+  })
   socket.on('connect', () => {
     console.log(`Connected to websocket, localPeerId: ${socket.id}`)
     subjects.onConnect.next(socket.id)
   })
 
+  socket.on('recovery', payload => (recoveryToken = payload)) // store recovery token
   socket.on('peer', payload => subjects.onClient.next(payload)) // a new peer has connected to the websocket
+  socket.on('config', payload => subjects.onConfig.next(payload)) // received ice servers from the server
   socket.on('call', payload => subjects.onCall.next(payload)) // a peer is calling
   socket.on('join', ({ isBroadcast = false, ...rest }: RoomPayload) => subjects.onJoin.next({ isBroadcast, ...rest })) // a peer wants to join a room or has created one
   socket.on('leave', payload => subjects.onLeave.next(payload)) // a peer has left a room or has disconnected
@@ -62,11 +69,17 @@ export function createIoSignalingChanel(uri: string, opts?: Partial<ManagerOptio
     ...subjects,
     me: () => socket.id,
     connect: () => !socket.connected && socket.connect(),
-    disconnect: () => socket.close(),
+    disconnect: () => {
+      recoveryToken = undefined
+      socket.close()
+    },
     createRoom: (payload: { isBroadcast: boolean }) => socket.emit('call', payload),
     makeCall: (payload: { to?: string, isBroadcast: boolean, [key: string]: any }) => socket.emit('call', payload),
     join: (payload: Omit<RoomPayload, 'from'> & { [key: string]: any }) => socket.emit('join', payload),
-    leave: (payload: Omit<RoomPayload, 'from'>) => socket.emit('leave', payload),
+    leave: (payload: Omit<RoomPayload, 'from'>) => {
+      recoveryToken = undefined
+      socket.emit('leave', payload)
+    },
     sendSessionDescription: (sessionDescription: Omit<SessionDescriptionPayload, 'from'>) => socket.emit('desc', sessionDescription),
     sendCandidate: (iceCandidate: Omit<CandidatePayload, 'from'>) => socket.emit('candidate', iceCandidate)
   }

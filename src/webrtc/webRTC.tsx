@@ -16,6 +16,7 @@ const subjects = {
 export function createWebRTCClient({ signalingChannel, ...configuration }: RTCConfiguration & { signalingChannel: ReturnType<typeof createIoSignalingChanel> }) {
   const connections: Array<{ room: string, remotePeerId: string, connection: RTCPeerConnection, channel?: RTCDataChannel, sender?: RTCRtpSender }> = []
 
+  signalingChannel.onConfig.subscribe(iceServers => configuration.iceServers = iceServers)
   signalingChannel.onSessionDescription.subscribe(receiveSessionDescription)
   signalingChannel.onCandidate.subscribe(receiveCandidate)
   signalingChannel.onLeave.subscribe(closeConnection)
@@ -30,7 +31,7 @@ export function createWebRTCClient({ signalingChannel, ...configuration }: RTCCo
     }
   }
 
-  async function getConnectionsForRoom(room: string) {
+  function getConnectionsForRoom(room: string) {
     return connections.filter(c => c.room === room)
   }
 
@@ -195,7 +196,7 @@ export function useWebRTC() {
 export function useCall() {
   const [room, setRoom] = useState<string>()
   const { makeCall, onCall, me, join, leave, onJoin } = useSignalingChannel()
-  const { sendMessage, addTrack, removeTrack, sendOffer } = useWebRTC()
+  const { sendMessage, addTrack, removeTrack, sendOffer, getConnectionsForRoom } = useWebRTC()
 
   useEffect(() => {
     const subscriber = onCall.subscribe(({ from: remotePeerId, room }) => {
@@ -223,13 +224,15 @@ export function useCall() {
 
   const handleLeaveRoom = useCallback(() => {
     if (room) {
+      const conns = getConnectionsForRoom(room)
+      conns.forEach(conn => conn.channel?.close())
       removeTrack(room)
       leave({ room })
       setRoom(undefined)
     } else {
       console.warn('You need to make a call before the room can be left')
     }
-  }, [room, leave, removeTrack])
+  }, [room, leave, removeTrack, getConnectionsForRoom])
   const handleSendMessage = useCallback((message: { [key: string]: any }) => room ? sendMessage(room, message) : console.warn('You need to make a call before you can send a message'), [room, sendMessage])
   const handleAddTrack = useCallback((track: MediaStreamTrack, ...streams: MediaStream[]) => room ? addTrack(room, track, ...streams) : console.warn('You need to make a call before you can add a track'), [room, addTrack])
   const handleRemoveTrack = useCallback(() => room ? removeTrack(room) : console.warn('You need to make a call before you can remove track'), [room, removeTrack])
