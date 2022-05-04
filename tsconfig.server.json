@@ -16,7 +16,7 @@
     ]
   },
   "include": [
-    "src/webrtc/signalingServer.ts"
+    "src/signalingServer.ts"
   ],
   "exclude": [
     "node_modules"

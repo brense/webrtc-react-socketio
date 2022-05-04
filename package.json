@@ -21,7 +21,7 @@
   },
   "scripts": {
     "start": "react-scripts start",
-    "start:server": "ts-node-dev --project ./tsconfig.server.json ./src/webrtc/signalingServer.ts",
+    "start:server": "ts-node-dev --project ./tsconfig.server.json ./src/signalingServer.ts",
     "build:app": "react-scripts build",
     "prebuild": "rimraf dist && rimraf build",
     "build": "npm run build:app && tsc --p tsconfig.server.json",

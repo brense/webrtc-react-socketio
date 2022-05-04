@@ -1,6 +1,6 @@
 import { CircularProgress, DialogActions, DialogContent, DialogTitle, Icon, IconButton, Typography } from '@mui/material'
 import { useCallback, useRef, useState } from 'react'
-import { Room as WebRTCRoom, useOnChannelClose, useOnChannelOpen } from '../webrtc/webRTC'
+import { Room as WebRTCRoom, useOnChannelClose, useOnChannelOpen } from '../webrtc'
 
 function PrivateCall({ caller, room, onEndCall }: { room?: WebRTCRoom, caller?: { answered?: boolean, room: string, from: string, name: string | undefined }, onEndCall: () => void }) {
   const [connected, setConnected] = useState(false)

@@ -1,7 +1,7 @@
 import { Badge, Box, Button, FilledInput, Icon, IconButton, List, ListItem, ListItemText, Typography } from '@mui/material'
 import moment from 'moment'
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Room as WebRTCRoom, useOnChannelClose, useOnChannelOpen, useOnMessage, useOnTrack } from '../webrtc/webRTC'
+import { Room as WebRTCRoom, useOnChannelClose, useOnChannelOpen, useOnMessage, useOnTrack } from '../webrtc'
 import RoomMembers, { Member } from './RoomMembers'
 
 function AudioStream({ stream, muted }: { stream: MediaProvider, muted: boolean }) {

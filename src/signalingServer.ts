@@ -8,7 +8,7 @@ import { websocket, httpServer, handleCall, handleJoin, handleLeave, removeAband
 websocket.on('connection', socket => {
   console.info(`peer ${socket.id} connected`)
 
-  // re-assign broadcast owner socket id
+  // rejoin room and re-assign broadcast owner socket id
   const { recoveryToken } = socket.handshake.query
   if (recoveryToken) {
     jwt.verify(recoveryToken as string || '', 'secret', attemptRejoinRoom(socket))

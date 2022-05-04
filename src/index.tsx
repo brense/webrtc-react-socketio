@@ -1,7 +1,8 @@
 import React from 'react'
 import { createRoot } from 'react-dom/client'
 import reportWebVitals from './reportWebVitals'
-import { createWebRTCClient, createIoSignalingChanel, WebRTCClientProvider, SignalingChannelProvider } from './webrtc'
+import { createWebRTCClient, WebRTCClientProvider } from './webrtc'
+import { createIoSignalingChannel, SignalingChannelProvider } from './signaling'
 import { createTheme, CssBaseline, ThemeProvider } from '@mui/material'
 import { pink, teal } from '@mui/material/colors'
 import moment from 'moment'
@@ -14,7 +15,7 @@ moment.locale('nl')
 const port = window.location.port || (window.location.protocol === 'https:' ? 443 : 80)
 const socketUrl = `${window.location.protocol}//${window.location.hostname}:${port}`
 
-const signalingChannel = createIoSignalingChanel(socketUrl, { autoConnect: true })
+const signalingChannel = createIoSignalingChannel(socketUrl, { autoConnect: true })
 const webRTCClient = createWebRTCClient({ signalingChannel })
 
 const theme = createTheme({
