@@ -3,8 +3,8 @@ import { FormEvent, useCallback, useEffect, useRef, useState } from 'react'
 import CallDialog from './components/CallDialog'
 import CreateOrJoinRoom from './components/CreateOrJoinRoom'
 import Room from './components/Room'
-import { useSignalingChannel } from './webrtc'
-import { useCall, useOnCall } from './webrtc/webRTC'
+import { useSignalingChannel } from './signaling'
+import { useCall, useOnCall } from './webrtc'
 
 function App() {
   const [broadcasts, setBroadcasts] = useState<{ [key: string]: string }>({})
