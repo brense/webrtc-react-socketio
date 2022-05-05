@@ -3,10 +3,6 @@
   "version": "0.0.5",
   "main": "./lib-esm/webrtc/index.js",
   "types": "./lib-esm/webrtc/index.d.ts",
-  "exports": {
-    "./server": "./lib-esm/server/index.js",
-    "./signaling": "./lib-esm/signaling/index.js"
-  },
   "author": "Rense Bakker",
   "license": "ISC",
   "repository": {
