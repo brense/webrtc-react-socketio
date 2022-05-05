@@ -1,6 +1,6 @@
 {
   "name": "webrtc-react-socketio",
-  "version": "0.0.19",
+  "version": "0.0.20",
   "type": "module",
   "main": "./webrtc/index.js",
   "types": "./webrtc/index.d.ts",
