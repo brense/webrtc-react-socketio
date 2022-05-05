@@ -5,6 +5,14 @@
   "types": "./lib-esm/webrtc/index.d.ts",
   "author": "Rense Bakker",
   "license": "ISC",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/brense/webrtc-react-socketio.git"
+  },
+  "bugs": {
+    "url": "https://github.com/brense/webrtc-react-socketio/issues"
+  },
+  "homepage": "https://github.com/brense/webrtc-react-socketio#readme",
   "dependencies": {
     "dotenv": "^16.0.0",
     "express": "^4.17.3",
