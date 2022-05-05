@@ -2,11 +2,7 @@
   "name": "webrtc-react-socketio",
   "version": "0.0.7",
   "type": "module",
-  "exports": {
-    ".": "./lib-esm/webrtc/index.js",
-    "./signaling": "./lib-esm/signaling/index.js",
-    "./server": "./lib-esm/server/index.js"
-  },
+  "main": "./lib-esm/webrtc/index.js",
   "types": "./lib-esm/webrtc/index.d.ts",
   "author": "Rense Bakker",
   "license": "ISC",
@@ -28,7 +24,7 @@
     "yargs": "^17.4.0"
   },
   "scripts": {
-    "prepublishOnly": "tsc --p ./tsconfig.npm.json",
+    "prepublishOnly": "tsc --p ./tsconfig.npm.json && copyfiles package.json lib-esm",
     "start": "react-scripts start",
     "start:server": "ts-node-dev --project ./tsconfig.server.json ./src/signalingServer.ts",
     "build:app": "react-scripts build",
