@@ -1,46 +1,96 @@
-# Getting Started with Create React App
+# WebRTC React hooks
+WebRTC client, [socket.io](https://socket.io/) signaling channel and hooks for react + signaling server middleware
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+## Installation
+```bash
+npm install webrtc-react-socketio
+```
 
-## Available Scripts
+## Usage
+This package contains a WebRTC client, signalling channel and signaling server middleware.
 
-In the project directory, you can run:
+### Signaling server
+```typescript
+import express from 'express'
+import http from 'http'
+import { Server as WebSocketServer } from 'socket.io'
+import { applySignalingMiddleware } from 'webrtc-react-socketio/server'
 
-### `npm start`
+const PORT = 3001
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
+// init websocket server
+const app = express()
+export const httpServer = http.createServer(app)
+export const websocket = new WebSocketServer(httpServer)
 
-The page will reload if you make edits.\
-You will also see any lint errors in the console.
+applySignalingMiddleware(websocket)
 
-### `npm test`
+websocket.on('connection', socket => {
+  console.info(`peer ${socket.id} connected`)
+})
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+httpServer.listen(PORT, '0.0.0.0', () => console.log(`🚀 Server ready at ws://localhost:${PORT}`))
+```
 
-### `npm run build`
+### WebRTC Client and signaling channel
+```jsx
+import React from 'react'
+import { createRoot } from 'react-dom/client'
+import { createWebRTCClient, WebRTCClientProvider } from 'webrtc-react-socketio'
+import { createIoSignalingChannel, SignalingChannelProvider } from 'webrtc-react-socketio/signaling'
+import App from './App'
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+const port = window.location.port || (window.location.protocol === 'https:' ? 443 : 80)
+const socketUrl = `${window.location.protocol}//${window.location.hostname}:${port}`
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+const signalingChannel = createIoSignalingChannel(socketUrl, { autoConnect: true })
+const webRTCClient = createWebRTCClient({ signalingChannel })
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+const root = createRoot(document.getElementById('root') as HTMLElement)
+root.render(<React.StrictMode>
+  <SignalingChannelProvider signalingChannel={signalingChannel}>
+    <WebRTCClientProvider client={webRTCClient}>
+        <App />
+    </WebRTCClientProvider>
+  </SignalingChannelProvider>
+</React.StrictMode>)
+```
 
-### `npm run eject`
+### WebRTC client React hooks
+```jsx
+import { FormEvent, useCallback, useEffect, useRef, useState } from 'react'
+import { useCall, useOnCall } from './webrtc'
 
-**Note: this is a one-way operation. Once you `eject`, you can’t go back!**
+function App() {
+  const [hasCall, setHasCall] = useState<{ room: string }>()
+  const { makeCall, answerCall, room } = useCall()
 
-If you aren’t satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+  useOnCall(payload => setHasCall(payload))
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you’re on your own.
+  const handleCall = useCallback(({ remotePeerId }: { remotePeerId?: string }) => {
+    if (room) {
+      room.leaveRoom()
+    }
+    makeCall(remotePeerId || null)
+  }, [makeCall, name, room])
 
-You don’t have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn’t feel obligated to use this feature. However we understand that this tool wouldn’t be useful if you couldn’t customize it when you are ready for it.
+  const handleAnswerCall = useCallback(() => {
+    if (hasCall) {
+      room.leaveRoom()
+      answerCall({ room: hasCall.room })
+      setHasCall(undefined)
+    }
+  }, [answerCall, hasCall, room])
 
-## Learn More
+  const handleEndCall = useCallback(() => {
+    setHasCall(undefined)
+    if (room) {
+      room.leaveRoom()
+    }
+  }, [room])
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+  return <div>...</div>
+}
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+export default App
+```

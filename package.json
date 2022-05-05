@@ -1,25 +1,30 @@
 {
   "name": "webrtc-react-socketio",
   "version": "0.1.0",
-  "private": true,
+  "type": "module",
+  "main": "./webrtc/index.js",
+  "types": "./webrtc/index.d.ts",
+  "author": "Rense Bakker",
+  "license": "ISC",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/brense/webrtc-react-socketio.git"
+  },
+  "bugs": {
+    "url": "https://github.com/brense/webrtc-react-socketio/issues"
+  },
+  "homepage": "https://github.com/brense/webrtc-react-socketio#readme",
   "dependencies": {
-    "@emotion/react": "^11.9.0",
-    "@emotion/styled": "^11.8.1",
-    "@mui/material": "^5.6.0",
     "dotenv": "^16.0.0",
     "express": "^4.17.3",
     "jsonwebtoken": "^8.5.1",
-    "moment": "^2.29.2",
-    "react": "^18.0.0",
-    "react-dom": "^18.0.0",
-    "react-scripts": "5.0.0",
     "rxjs": "^7.5.5",
     "socket.io": "^4.4.1",
     "socket.io-client": "^4.4.1",
-    "web-vitals": "^2.1.4",
     "yargs": "^17.4.0"
   },
   "scripts": {
+    "build:npm": "rimraf lib-esm && tsc --p ./tsconfig.npm.json && copyfiles package.json lib-esm && npm publish ./lib-esm",
     "start": "react-scripts start",
     "start:server": "ts-node-dev --project ./tsconfig.server.json ./src/signalingServer.ts",
     "build:app": "react-scripts build",
@@ -49,6 +54,9 @@
     ]
   },
   "devDependencies": {
+    "@emotion/react": "^11.9.0",
+    "@emotion/styled": "^11.8.1",
+    "@mui/material": "^5.6.4",
     "@testing-library/jest-dom": "^5.16.4",
     "@testing-library/react": "^13.0.0",
     "@testing-library/user-event": "^14.0.4",
@@ -58,8 +66,13 @@
     "@types/react": "^18.0.0",
     "@types/react-dom": "^18.0.0",
     "copyfiles": "^2.4.1",
+    "moment": "^2.29.3",
+    "react": "^18.1.0",
+    "react-dom": "^18.1.0",
+    "react-scripts": "^5.0.1",
     "rimraf": "^3.0.2",
     "ts-node-dev": "^1.1.8",
-    "typescript": "^4.6.3"
+    "typescript": "^4.6.3",
+    "web-vitals": "^2.1.4"
   }
 }
