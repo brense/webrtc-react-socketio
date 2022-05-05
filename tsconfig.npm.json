@@ -14,9 +14,9 @@
     "jsx": "react-jsx"
   },
   "include": [
-    "src/webrtc",
-    "src/signaling",
-    "src/server"
+    "../src/webrtc",
+    "../src/signaling",
+    "../src/server"
   ],
   "exclude": [
     "node_modules"
