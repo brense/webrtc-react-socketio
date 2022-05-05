@@ -8,6 +8,3 @@ export { default as useOnChannelClose } from './useOnChannelClose'
 export { default as useOnMessage } from './useOnMessage'
 export { default as useOnTrack } from './useOnTrack'
 export type { WebRTCClient, Room } from './types'
-
-export * as signaling from '../signaling'
-export * as server from '../server'
