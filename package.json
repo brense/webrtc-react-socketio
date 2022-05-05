@@ -24,7 +24,7 @@
     "yargs": "^17.4.0"
   },
   "scripts": {
-    "prepublishOnly": "rimraf lib-esm && tsc --p ../tsconfig.npm.json && copyfiles package.json lib-esm",
+    "prepublishOnly": "rimraf lib-esm && copyfiles package.json lib-esm && tsc --p ../tsconfig.npm.json",
     "start": "react-scripts start",
     "start:server": "ts-node-dev --project ./tsconfig.server.json ./src/signalingServer.ts",
     "build:app": "react-scripts build",
