@@ -1,6 +1,6 @@
 {
   "name": "webrtc-react-socketio",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "main": "./lib-esm",
   "types": "./lib-esm",
   "author": "Rense Bakker",
