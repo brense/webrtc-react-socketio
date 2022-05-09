@@ -40,10 +40,21 @@ export const { port } = yargs.options({
 // init websocket server
 const app = express()
 export const httpServer = http.createServer(app)
-export const websocket = new WebSocketServer(httpServer)
+export const websocket = new WebSocketServer(httpServer, {
+  cors: {
+    origin: 'http://localhost:3000'
+  }
+})
 
 // serve static files
 serveStatic(app)
+
+// validate auth token
+websocket.use((socket, next) => {
+  const token = socket.handshake.auth.token;
+  console.log(token)
+  next()
+})
 
 // send ice server config to connected peer
 websocket.use((socket, next) => {
