@@ -54,7 +54,8 @@ function createIoSignalingChanel(uri: string, opts?: Partial<ManagerOptions & So
       socket.emit('leave', payload)
     },
     sendSessionDescription: (sessionDescription: Omit<SessionDescriptionPayload, 'from'>) => socket.emit('desc', sessionDescription),
-    sendCandidate: (iceCandidate: Omit<CandidatePayload, 'from'>) => socket.emit('candidate', iceCandidate)
+    sendCandidate: (iceCandidate: Omit<CandidatePayload, 'from'>) => socket.emit('candidate', iceCandidate),
+    socket
   }
 }
 
