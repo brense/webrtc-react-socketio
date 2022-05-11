@@ -47,6 +47,7 @@ function createIoSignalingChanel(uri: string, opts?: Partial<ManagerOptions & So
     },
     createRoom: (payload: { isBroadcast: boolean }) => socket.emit('call', payload),
     makeCall: (payload: { to?: string, isBroadcast: boolean, [key: string]: any }) => socket.emit('call', payload),
+    broadcast: (payload: Omit<RoomPayload, 'from'> & { [key: string]: any }) => socket.emit('broadcast', payload),
     join: (payload: Omit<RoomPayload, 'from'> & { [key: string]: any }) => socket.emit('join', payload),
     leave: (payload: Omit<RoomPayload, 'from'>) => {
       recoveryToken = undefined
