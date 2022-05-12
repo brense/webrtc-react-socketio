@@ -13,7 +13,7 @@ export type SessionDescriptionPayload = {
 
 export type CandidatePayload = {
   room: string
-  candidate: RTCIceCandidateInit
+  candidate: RTCIceCandidateInit | null
   to: string
   from: string
 }

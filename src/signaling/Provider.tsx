@@ -15,8 +15,8 @@ export function useSignalingChannel() {
   const signalingChannel = useContext(SignalingChanelContext)
   useEffect(() => {
     const subscriptions: Subscription[] = []
-    subscriptions.push(signalingChannel.onConnect.subscribe(() => setIsConnected(true)))
-    subscriptions.push(signalingChannel.onDisconnect.subscribe(() => setIsConnected(false)))
+    subscriptions.push(signalingChannel.onConnect(() => setIsConnected(true)))
+    subscriptions.push(signalingChannel.onDisconnect(() => setIsConnected(false)))
     return () => {
       subscriptions.forEach(subscription => subscription.unsubscribe())
     }
