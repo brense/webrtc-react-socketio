@@ -1,4 +1,4 @@
-import { useCallback } from 'react'
+import { useCallback, useRef } from 'react'
 import { useSignalingChannel } from '../signaling'
 import jsonDateReviver from './jsonDateReviver'
 
@@ -9,7 +9,8 @@ const channels: { [key: string]: RTCDataChannel } = {}
 type CreatePeerConnectionParams = {
   identifier: string,
   configuration?: RTCConfiguration,
-  onDataChannel: (event: RTCDataChannelEvent) => void,
+  onDataChannel?: (event: RTCDataChannelEvent) => void,
+  onTrack?: (event: RTCTrackEvent) => void,
   onNegotiationNeeded: (options?: RTCOfferOptions) => void,
   onIceCandidate: (event: RTCPeerConnectionIceEvent) => void
 }
@@ -28,6 +29,8 @@ type UsePeerConnectionParams = {
 }
 
 function usePeerConnection({ room: roomCheck, onTrack, onMessage, onChannelOpen, onChannelClose, ...configuration }: { room: string, onTrack?: (track: RTCTrackEvent) => void } & DataChannelListeners & RTCConfiguration) {
+  const trackRef = useRef<{ track: MediaStreamTrack, streams: MediaStream[] }>()
+
   const setDataChannelListeners = useCallback((channel: RTCDataChannel, dataChannelListeners: DataChannelListeners) => {
     const { onMessage, onChannelOpen, onChannelClose } = dataChannelListeners
     if (channel.readyState !== 'closed') {
@@ -41,58 +44,52 @@ function usePeerConnection({ room: roomCheck, onTrack, onMessage, onChannelOpen,
     }
   }, [])
 
-  const createPeerConnection = useCallback(({ identifier, onDataChannel, onNegotiationNeeded, onIceCandidate, configuration }: CreatePeerConnectionParams) => {
+  const createPeerConnection = useCallback(({ identifier, onDataChannel, onTrack, onNegotiationNeeded, onIceCandidate, configuration }: CreatePeerConnectionParams) => {
     const connection = new RTCPeerConnection(configuration)
     connection.onicecandidate = onIceCandidate
     connection.onnegotiationneeded = () => onNegotiationNeeded()
-    connection.ondatachannel = onDataChannel
+    onDataChannel && (connection.ondatachannel = onDataChannel)
+    onTrack && (connection.ontrack = onTrack)
     connection.oniceconnectionstatechange = () => connection.iceConnectionState === 'failed' && onNegotiationNeeded({ iceRestart: true })
-    const channel = connection.createDataChannel(identifier)
-    setDataChannelListeners(channel, { onMessage, onChannelOpen, onChannelClose })
     connections[identifier] = connection
+    if (trackRef.current && !senders[identifier]) {
+      senders[identifier] = connection.addTrack(trackRef.current.track, ...trackRef.current.streams)
+    }
     return connection
-  }, [onChannelClose, onChannelOpen, onMessage, setDataChannelListeners])
+  }, [])
 
-  const getPeerConnection = useCallback(({ identifier, onTrack, onLocalDescription, onIceCandidate }: UsePeerConnectionParams) => {
+  const getPeerConnection = useCallback(({ identifier, onLocalDescription, onIceCandidate }: UsePeerConnectionParams) => {
     const connection = connections[identifier] || createPeerConnection({
       identifier,
       onDataChannel: event => {
         setDataChannelListeners(event.channel, { onMessage, onChannelOpen, onChannelClose })
         channels[identifier] = event.channel
       },
+      onTrack: event => {
+        onTrack && onTrack(event)
+      },
       onNegotiationNeeded: async (options?: RTCOfferOptions) => {
-        console.log('negotiation needed', identifier)
         await connection.setLocalDescription(await connection.createOffer(options))
         onLocalDescription(connection.localDescription)
       },
       onIceCandidate: event => {
-        console.log('ice candidate', event)
         onIceCandidate(event.candidate)
       },
       configuration
     })
-    if (onTrack) {
-      connection.ontrack = track => {
-        console.log('TRACK!', track)
-        onTrack(track)
-      }
-    }
     return connection
-  }, [configuration, createPeerConnection, onChannelClose, onChannelOpen, onMessage, setDataChannelListeners])
+  }, [configuration, createPeerConnection, onTrack, onChannelClose, onChannelOpen, onMessage, setDataChannelListeners])
 
   const { sendSessionDescription, sendIceCandidate } = useSignalingChannel({
-    onSessionDescription: ({ room, sdp, from: remotePeerId, ...rest }) => sdp && (!roomCheck || room === roomCheck) && receiveSessionDescription({
+    onSessionDescription: ({ room, sdp, from: remotePeerId }) => sdp && (!roomCheck || room === roomCheck) && receiveSessionDescription({
       identifier: `${room},${remotePeerId}`,
       sdp,
       onLocalDescription: localSdp => localSdp && sendSessionDescription({ sdp: localSdp, room, to: remotePeerId })
     }),
-    onIceCandidate: ({ room, candidate, from: remotePeerId }) => {
-      console.log('remote ice candidate', candidate)
-      candidate && (!roomCheck || room === roomCheck) && receiveCandidate({
-        identifier: `${room},${remotePeerId}`,
-        candidate
-      })
-    },
+    onIceCandidate: ({ room, candidate, from: remotePeerId }) => candidate && (!roomCheck || room === roomCheck) && receiveCandidate({
+      identifier: `${room},${remotePeerId}`,
+      candidate
+    }),
     onNewMember: ({ room, from: remotePeerId }) => (!roomCheck || room === roomCheck) && getPeerConnection({
       identifier: `${room},${remotePeerId}`,
       onLocalDescription: sdp => sendSessionDescription({ sdp, room, to: remotePeerId }),
@@ -141,20 +138,29 @@ function usePeerConnection({ room: roomCheck, onTrack, onMessage, onChannelOpen,
     getChannelIdentifiersForRoom(roomCheck).forEach(identifier => channels[identifier]?.send(JSON.stringify(data)))
   }, [roomCheck])
 
-  const addTrack = useCallback((track: MediaStreamTrack, ...streams: MediaStream[]) => {
-    console.log('add track', connections)
+  const createDataChannel = useCallback(() => {
     getConnectionIdentifiersForRoom(roomCheck).forEach(identifier => {
-      console.log('CONN', connections[identifier])
+      const channel = connections[identifier]?.createDataChannel(identifier)
+      setDataChannelListeners(channel, { onMessage, onChannelOpen, onChannelClose })
+      channels[identifier] = channel
+    })
+  }, [onChannelClose, onChannelOpen, onMessage, roomCheck, setDataChannelListeners])
+
+  const addTrack = useCallback((track: MediaStreamTrack, ...streams: MediaStream[]) => {
+    trackRef.current = { track, streams }
+    getConnectionIdentifiersForRoom(roomCheck).forEach(identifier => {
       const sender = connections[identifier]?.addTrack(track, ...streams)
       senders[identifier] = sender
     })
   }, [roomCheck])
 
   const removeTrack = useCallback(() => {
+    trackRef.current = undefined
     getConnectionIdentifiersForRoom(roomCheck).forEach(identifier => senders[identifier] && connections[identifier]?.removeTrack(senders[identifier]))
   }, [roomCheck])
 
   return {
+    createDataChannel,
     sendMessage,
     addTrack,
     removeTrack

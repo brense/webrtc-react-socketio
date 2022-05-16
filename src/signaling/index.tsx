@@ -21,12 +21,29 @@ function createIoSignalingChannel(uri: string, opts?: Partial<ManagerOptions & S
     onConnect.next(socket.id)
   })
 
-  socket.on('new member', payload => onNewMember.next(payload)) // a new member has joined your broadcast
-  // socket.on('config', payload => onConfig.next(payload)) // received ice servers config from the server
-  socket.on('leave', payload => onLeave.next(payload)) // a member has left a broadcast or has disconnected
+  socket.on('new member', payload => onNewMember.next(payload)) // a new member has joined your room
+  socket.on('leave', payload => onLeave.next(payload)) // a member has left your room or has disconnected
   socket.on('desc', payload => onSessionDescription.next(payload)) // received a session description from another peer
   socket.on('candidate', payload => onIceCandidate.next(payload)) // received an icecandidate from another peer
   socket.on('disconnect', () => onDisconnect.next()) // socket server has disconnected
+
+  function broadcast(payload: Omit<RoomPayload, 'from' | 'room'> & { room?: string, [key: string]: any }, onResponse?: OnResponseCallback) {
+    socket.emit('broadcast', payload, handleResponse(onResponse))
+  }
+
+  function join(payload: Omit<RoomPayload, 'from' | 'room'> & { room?: string, [key: string]: any }, onResponse?: OnResponseCallback) {
+    socket.emit('join', payload, handleResponse(onResponse))
+  }
+
+  function leave(payload: Omit<RoomPayload, 'from'>) {
+    recoveryToken = undefined
+    socket.emit('leave', payload)
+  }
+
+  function disconnect() {
+    recoveryToken = undefined
+    socket.close()
+  }
 
   function handleResponse(onResponse?: (payload: { room: string, recoveryToken: string }) => void) {
     return (payload: { recoveryToken: string, room: string }) => {
@@ -38,26 +55,15 @@ function createIoSignalingChannel(uri: string, opts?: Partial<ManagerOptions & S
   return {
     me: () => socket.id,
     connect: () => !socket.connected && socket.connect(),
-    disconnect: () => {
-      recoveryToken = undefined
-      socket.close()
-    },
-    broadcast: (payload: Omit<RoomPayload, 'from' | 'room'> & { room?: string, [key: string]: any }, onResponse?: OnResponseCallback) => {
-      socket.emit('broadcast', payload, handleResponse(onResponse))
-    },
-    join: (payload: Omit<RoomPayload, 'from' | 'room'> & { room?: string, [key: string]: any }, onResponse?: OnResponseCallback) => {
-      socket.emit('join', payload, handleResponse(onResponse))
-    },
-    leave: (payload: Omit<RoomPayload, 'from'>) => {
-      recoveryToken = undefined
-      socket.emit('leave', payload)
-    },
+    disconnect,
+    broadcast,
+    join,
+    leave,
     sendSessionDescription: (sessionDescription: Omit<SessionDescriptionPayload, 'from'>) => socket.emit('desc', sessionDescription),
     sendIceCandidate: (iceCandidate: Omit<CandidatePayload, 'from'>) => socket.emit('candidate', iceCandidate),
     socket
   }
 }
-
 
 const SignalingChanelContext = createContext<SignalingChanel>(undefined as unknown as SignalingChanel)
 
