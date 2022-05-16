@@ -1,6 +1,6 @@
 {
   "name": "new-webrtc-react",
-  "version": "0.1.5",
+  "version": "1.0.0",
   "main": "./webrtc/index.js",
   "types": "./webrtc/index.d.ts",
   "author": "Rense Bakker",
