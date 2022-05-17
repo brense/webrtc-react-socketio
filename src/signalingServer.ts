@@ -11,28 +11,31 @@ import applyIceConfigMiddleware from './iceConfigMiddleware'
 
 dotenv.config()
 
-const { PORT = '3001' } = process.env
+const {
+  PORT = '3001',
+  JWT_SECRET = 'NOT_VERY_SECRET',
+  CORS_ORIGIN = 'http://localhost:3000'
+} = process.env
 
 const broadcasts: { [key: string]: string } = {};
 
 // parse process args
-const { port } = yargs.options({ 'port': { alias: 'p', type: 'number', default: Number(PORT) } }).argv
+const { port, jwtSecret } = yargs.options({
+  port: { alias: 'p', type: 'number', default: Number(PORT) },
+  jwtSecret: { type: 'string', default: JWT_SECRET }
+}).argv
 
 // init websocket server
 const app = express()
 const httpServer = http.createServer(app)
-const websocket = new WebSocketServer(httpServer, {
-  cors: {
-    origin: 'http://localhost:3000' // TODO: remove cors? or change hardcoded value
-  }
-})
+const websocket = new WebSocketServer(httpServer, { cors: { origin: CORS_ORIGIN } })
 
 // serve static files
 serveStatic(app)
 
 applyIceConfigMiddleware(websocket)
 
-applyPeerDiscoveryMiddleware(websocket, broadcasts)
+applyPeerDiscoveryMiddleware(websocket, broadcasts, jwtSecret)
 
 applySignalingMiddleware(websocket, broadcasts)
 

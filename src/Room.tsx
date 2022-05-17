@@ -1,5 +1,5 @@
+import React, { PropsWithChildren, useCallback, useRef } from 'react'
 import { Button, Typography } from '@mui/material'
-import { PropsWithChildren, useCallback, useRef } from 'react'
 import { usePeerConnection } from './webrtc'
 
 function Room({ room, configuration }: PropsWithChildren<{ room: string, configuration?: RTCConfiguration }>) {

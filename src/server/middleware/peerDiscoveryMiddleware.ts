@@ -2,9 +2,7 @@ import { randomBytes } from 'crypto'
 import { Server, Socket } from 'socket.io'
 import jwt from 'jsonwebtoken'
 
-const { JWT_SECRET = 'NOT_VERY_SECRET' } = process.env
-
-function applyPeerDiscoveryMiddleware(websocket: Server, broadcasts: { [key: string]: string }) {
+function applyPeerDiscoveryMiddleware(websocket: Server, broadcasts: { [key: string]: string }, JWT_SECRET: string) {
   websocket.use((socket, next) => {
     attemptRecoverRoom(socket.handshake.query.recoveryToken as string || '', socket)
     socket.on('join', joinRoom(socket))
@@ -23,7 +21,7 @@ function applyPeerDiscoveryMiddleware(websocket: Server, broadcasts: { [key: str
     return async ({ room = randomBytes(20).toString('hex') }: { room?: string }, callback?: (payload: { room: string, recoveryToken: string }) => void) => {
       console.info(`socket ${socket.id} joining room ${room}`)
       socket.join(room)
-      broadcasts[room] && websocket.to(broadcasts[room]).emit('new member', { room, from: socket.id })
+      broadcasts[room] ? websocket.to(broadcasts[room]).emit('new member', { room, from: socket.id }) : socket.to(room).emit('new member', { room, from: socket.id })
       const recoveryToken = jwt.sign({ room }, JWT_SECRET)
       callback && callback({ room, recoveryToken })
     }
