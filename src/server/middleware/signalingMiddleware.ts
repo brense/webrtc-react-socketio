@@ -1,6 +1,11 @@
 import { Server, Socket } from 'socket.io'
 
-function applySignalingMiddleware(websocket: Server, broadcasts: { [key: string]: string }) {
+type Options = {
+  rooms?: Array<{ name?: string, id: string, broadcaster?: string }>
+}
+
+function applySignalingMiddleware(websocket: Server, options?: Options) {
+  const { rooms = [] } = options || { rooms: [] }
   websocket.use((socket, next) => {
     socket.on('desc', handleDescription(socket)) // relay RTCPeerDescriptions (offer/answer)
     socket.on('candidate', handleCandidate(socket)) // relay RTCPeerCandidates
@@ -9,9 +14,9 @@ function applySignalingMiddleware(websocket: Server, broadcasts: { [key: string]
 
   function handleDescription(socket: Socket) {
     return async ({ room, to, ...payload }: { room: string, to: string }) => {
-      const broadcaster = broadcasts[room]
-      if (broadcaster && socket.id !== broadcaster) {
-        websocket.to(broadcaster).emit('desc', { ...payload, room, from: socket.id })
+      const match = rooms.find(r => r.id === room)
+      if (match && match.broadcaster && socket.id !== match.broadcaster) {
+        websocket.to(match.broadcaster).emit('desc', { ...payload, room, from: socket.id })
       } else {
         socket.broadcast.to(to).emit('desc', { ...payload, room, from: socket.id })
       }
@@ -20,9 +25,9 @@ function applySignalingMiddleware(websocket: Server, broadcasts: { [key: string]
 
   function handleCandidate(socket: Socket) {
     return async ({ room, to, ...payload }: { room: string, to: string }) => {
-      const broadcaster = broadcasts[room]
-      if (broadcaster && socket.id !== broadcaster) {
-        websocket.to(broadcaster).emit('candidate', { ...payload, room, from: socket.id })
+      const match = rooms.find(r => r.id === room)
+      if (match && match.broadcaster && socket.id !== match.broadcaster) {
+        websocket.to(match.broadcaster).emit('candidate', { ...payload, room, from: socket.id })
       } else {
         socket.broadcast.to(to).emit('candidate', { ...payload, room, from: socket.id })
       }

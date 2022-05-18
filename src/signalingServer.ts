@@ -17,6 +17,8 @@ const {
   CORS_ORIGIN = 'http://localhost:3000'
 } = process.env
 
+const rooms: Array<{ id: string, name?: string, broadcaster?: string }> = []
+
 const broadcasts: { [key: string]: string } = {};
 
 // parse process args
@@ -35,12 +37,17 @@ serveStatic(app)
 
 applyIceConfigMiddleware(websocket)
 
-applyPeerDiscoveryMiddleware(websocket, broadcasts, jwtSecret)
+applyPeerDiscoveryMiddleware(websocket, {
+  rooms, jwtSecret, onRoomsChanged: rooms => {
+    websocket.emit('rooms', rooms)
+  }
+})
 
-applySignalingMiddleware(websocket, broadcasts)
+applySignalingMiddleware(websocket, { rooms })
 
 websocket.on('connection', socket => {
   console.info(`socket ${socket.id} connected`)
+  socket.emit('rooms', rooms)
 })
 
 httpServer.listen(port, '0.0.0.0', () => console.log(`🚀 Server ready at ws://localhost:${port}`))

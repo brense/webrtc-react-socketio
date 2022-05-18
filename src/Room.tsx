@@ -2,7 +2,7 @@ import React, { PropsWithChildren, useCallback, useRef } from 'react'
 import { Button, Typography } from '@mui/material'
 import { usePeerConnection } from './webrtc'
 
-function Room({ room, configuration }: PropsWithChildren<{ room: string, configuration?: RTCConfiguration }>) {
+function Room({ room: { id: room, name, broadcaster }, configuration }: PropsWithChildren<{ room: { id: string, name?: string, broadcaster?: string }, configuration?: RTCConfiguration }>) {
   const audioRef = useRef<HTMLAudioElement>(null)
   const { addTrack } = usePeerConnection({
     room,
