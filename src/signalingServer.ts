@@ -18,35 +18,37 @@ const {
 } = process.env
 
 const rooms: Room[] = []
-const peers: Array<{ socketId: string, peerId: string }> = []
+const peers: Array<{ socketId: string, peerId: string }> = [];
 
-// parse process args
-const { port, jwtSecret } = yargs.options({
-  port: { alias: 'p', type: 'number', default: Number(PORT) },
-  jwtSecret: { type: 'string', default: JWT_SECRET }
-}).argv
+(async () => {
+  // parse process args
+  const { port, jwtSecret } = await yargs.options({
+    port: { alias: 'p', type: 'number', default: Number(PORT) },
+    jwtSecret: { type: 'string', default: JWT_SECRET }
+  }).argv
 
-// init websocket server
-const app = express()
-const httpServer = http.createServer(app)
-const websocket = new WebSocketServer(httpServer, { cors: { origin: CORS_ORIGIN } })
+  // init websocket server
+  const app = express()
+  const httpServer = http.createServer(app)
+  const websocket = new WebSocketServer(httpServer, { cors: { origin: CORS_ORIGIN } })
 
-// serve static files
-serveStatic(app)
+  // serve static files
+  serveStatic(app)
 
-applyIceConfigMiddleware(websocket)
+  applyIceConfigMiddleware(websocket)
 
-applyPeerDiscoveryMiddleware(websocket, {
-  peers, rooms, jwtSecret, onRoomsChanged: rooms => {
-    websocket.emit('rooms', rooms)
-  }
-})
+  applyPeerDiscoveryMiddleware(websocket, {
+    peers, rooms, jwtSecret, onRoomsChanged: rooms => {
+      websocket.emit('rooms', rooms)
+    }
+  })
 
-applySignalingMiddleware(websocket, { peers, rooms })
+  applySignalingMiddleware(websocket, { peers, rooms })
 
-websocket.on('connection', socket => {
-  console.info(`socket ${socket.handshake.query.peerId} connected`)
-  socket.emit('rooms', rooms)
-})
+  websocket.on('connection', socket => {
+    console.info(`socket ${socket.handshake.query.peerId} connected`)
+    socket.emit('rooms', rooms)
+  })
 
-httpServer.listen(port, '0.0.0.0', () => console.log(`🚀 Server ready at ws://localhost:${port}`))
+  httpServer.listen(port, '0.0.0.0', () => console.log(`🚀 Server ready at ws://localhost:${port}`))
+})()
