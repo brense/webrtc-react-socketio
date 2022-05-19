@@ -8,36 +8,18 @@ type Options = {
 
 function applySignalingMiddleware(websocket: Server, { peers, rooms = [] }: Options) {
   websocket.use((socket, next) => {
-    socket.on('desc', handleDescription(socket)) // relay RTCPeerDescriptions (offer/answer)
-    socket.on('candidate', handleCandidate(socket)) // relay RTCPeerCandidates
+    socket.on('desc', handleSignalingEvent(socket, 'desc')) // relay RTCPeerDescriptions (offer/answer)
+    socket.on('candidate', handleSignalingEvent(socket, 'candidate')) // relay RTCPeerCandidates
     next()
   })
 
-  function handleDescription(socket: Socket) {
+  function handleSignalingEvent(socket: Socket, type: 'desc' | 'candidate') {
     const localPeerId = peers.find(p => p.socketId === socket.id)?.peerId || socket.id
     return async ({ room, to, ...payload }: { room: string, to: string }) => {
-      const match = rooms.find(r => r.id === room)
-      if (match && match.broadcaster && localPeerId !== match.broadcaster) {
-        const remoteSocketId = peers.find(p => p.peerId === match.broadcaster)?.socketId || match.broadcaster
-        websocket.to(remoteSocketId).emit('desc', { ...payload, room, from: localPeerId })
-      } else {
-        const remoteSocketId = peers.find(p => p.peerId === to)?.socketId || to
-        websocket.to(remoteSocketId).emit('desc', { ...payload, room, from: localPeerId })
-      }
-    }
-  }
-
-  function handleCandidate(socket: Socket) {
-    const localPeerId = peers.find(p => p.socketId === socket.id)?.peerId || socket.id
-    return async ({ room, to, ...payload }: { room: string, to: string }) => {
-      const match = rooms.find(r => r.id === room)
-      if (match && match.broadcaster && localPeerId !== match.broadcaster) {
-        const remoteSocketId = peers.find(p => p.peerId === match.broadcaster)?.socketId || match.broadcaster
-        websocket.to(remoteSocketId).emit('candidate', { ...payload, room, from: localPeerId })
-      } else {
-        const remoteSocketId = peers.find(p => p.peerId === to)?.socketId || to
-        websocket.to(remoteSocketId).emit('candidate', { ...payload, room, from: localPeerId })
-      }
+      const roomMatch = rooms.find(r => r.id === room)
+      const isBroadcastRoom = roomMatch && roomMatch.broadcaster && localPeerId !== roomMatch.broadcaster
+      const remoteSocketId = isBroadcastRoom ? peers.find(p => p.peerId === roomMatch.broadcaster)?.socketId : peers.find(p => p.peerId === to)?.socketId
+      remoteSocketId && websocket.to(remoteSocketId).emit(type, { ...payload, room, from: localPeerId })
     }
   }
 }

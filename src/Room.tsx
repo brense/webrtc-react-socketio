@@ -1,5 +1,5 @@
 import React, { PropsWithChildren, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Box, List, ListItem, ListItemText, TextField, Typography } from '@mui/material'
+import { Box, Icon, IconButton, List, ListItem, ListItemText, TextField, Typography } from '@mui/material'
 import { usePeerConnection } from './webrtc'
 import { useSignalingChannel } from './signaling'
 
@@ -12,34 +12,46 @@ type MessageData = {
 }
 
 function Room({ room: { id: room, broadcaster }, username, configuration }: PropsWithChildren<{ room: { id: string, name?: string, broadcaster?: string }, username: string, configuration?: RTCConfiguration }>) {
-  const [members, setMembers] = useState<{ [key: string]: { username: string } }>({})
-  const membersRef = useRef<typeof members>()
+  const [members, setMembers] = useState<Array<{ peerId: string, username: string }>>([])
   const [messages, setMessages] = useState<MessageData[]>([])
   const audioRef = useRef<HTMLAudioElement>(null)
+  const streamRef = useRef<MediaStream>()
   const { socket, peerId } = useSignalingChannel()
 
   useEffect(() => {
-    if (membersRef.current !== members) {
-      console.log('members changed!', members)
-      membersRef.current = members
-    }
+    console.log('members changed', members)
   }, [members])
 
-  const onMessage = useCallback((data: MessageData) => {
-    if (data.type === 'system') {
-      switch (data.message) {
+  const handleNewMemberMessage = useCallback(async ({ peerId, username, ...data }: MessageData) => {
+    const isNew = await new Promise(resolve => {
+      setMembers(members => {
+        const memberIndex = members.findIndex(m => m.peerId === peerId)
+        if (memberIndex < 0) {
+          resolve(true)
+          return [...members, { peerId, username }]
+        }
+        resolve(false)
+        return members
+      })
+    })
+    isNew && setMessages(messages => [...messages, { ...data, peerId, username: 'system', message: `${username} has joined` }])
+  }, [])
+
+  const onMessage = useCallback(async ({ type, message, ...data }: MessageData) => {
+    if (type === 'system') {
+      switch (message) {
         case 'new member':
-          if (!members[data.peerId]) {
-            setMembers(members => ({ ...members, [data.peerId]: { username: data.username } }))
-            setMessages(messages => [...messages, { ...data, username: 'system', message: `${data.username} has joined` }])
-          }
+          await handleNewMemberMessage({ ...data, type, message })
+          break
+        default:
+          break
       }
     } else {
-      setMessages(messages => [...messages, data])
+      setMessages(messages => [...messages, { ...data, type, message }])
     }
   }, [])
 
-  const { addTrack, createDataChannel, sendMessage } = usePeerConnection<MessageData>({
+  const { addTrack, removeTrack, createDataChannel, sendMessage } = usePeerConnection<MessageData>({
     room,
     onTrack: track => {
       if (audioRef.current) {
@@ -59,23 +71,32 @@ function Room({ room: { id: room, broadcaster }, username, configuration }: Prop
   const handleMemberLeave = useCallback((payload: { room: string, from: string }) => {
     if (payload.room === room) {
       setMembers(members => {
-        if (members[payload.from]) {
-          setMessages(m => [...m, { type: 'system', peerId, username: 'system', message: `${members[payload.from]?.username} has left`, date: new Date() }])
-          delete members[payload.from]
-          return { ...members }
+        const memberIndex = members.findIndex(m => m.peerId === payload.from)
+        if (memberIndex >= 0) {
+          const { username } = members[memberIndex] || { username: 'Someone' }
+          setMessages(messages => [...messages, { type: 'system', peerId, username: 'system', message: `${username} has left`, date: new Date() }])
+          members.splice(memberIndex, 1)
+          return [...members]
         }
         return members
       })
     }
   }, [room])
 
-  const handleBroadcast = useCallback(async () => {
-    const stream = await navigator.mediaDevices
-      .getUserMedia({
-        audio: true,
-        video: false
-      })
-    stream.getTracks().forEach(track => addTrack(track, stream))
+  const toggleBroadcast = useCallback(async () => {
+    if (!streamRef.current) {
+      const stream = await navigator.mediaDevices
+        .getUserMedia({
+          audio: true,
+          video: false
+        })
+      stream.getTracks().forEach(track => addTrack(track, stream))
+      streamRef.current = stream
+    } else {
+      streamRef.current.getTracks().forEach(track => track.stop())
+      removeTrack()
+      streamRef.current = undefined
+    }
   }, [addTrack])
 
   const handleNewMember = useCallback(({ room, from: remotePeerId }: { room: string, from: string }) => createDataChannel({ room, remotePeerId }), [])
@@ -113,8 +134,9 @@ function Room({ room: { id: room, broadcaster }, username, configuration }: Prop
       </ListItem>)}
     </List>
     <audio ref={audioRef} autoPlay />
-    <Box sx={{ display: 'flex' }} component="form" onSubmit={handleSubmitMessage} autoComplete="off">
-      <TextField variant="filled" name="message" role="presentation" autoComplete="off" autoFocus />
+    <Box sx={{ display: 'flex', alignItems: 'center' }} component="form" onSubmit={handleSubmitMessage} autoComplete="off">
+      <TextField variant="filled" name="message" role="presentation" autoComplete="off" autoFocus fullWidth />
+      <IconButton size="small" onClick={toggleBroadcast}><Icon>mic</Icon></IconButton>
     </Box>
   </Box >
 }

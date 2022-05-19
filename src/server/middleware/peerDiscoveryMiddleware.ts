@@ -80,11 +80,12 @@ function applyPeerDiscoveryMiddleware(websocket: Server, { peers, rooms = [], jw
   function attemptRecoverRoom(recoveryToken: string, socket: Socket) {
     try {
       const { id, broadcaster, ...payload } = jwt.verify(recoveryToken as string || '', jwtSecret) as Room
-      const match = rooms.find(r => r.id === id)
-      if (broadcaster && match && match.broadcaster !== broadcaster) {
-        throw new Error(`${match.broadcaster} took over the broadcast while you (${broadcaster}) were not connected`)
+      socket.join(id)
+      const roomExists = !!rooms.find(r => r.id === id)
+      if (!roomExists) {
+        // recreate room
+        broadcaster ? assignBroadcaster(socket)({ id, ...payload }) : joinRoom(socket)({ id, ...payload })
       }
-      broadcaster ? assignBroadcaster(socket)({ id, ...payload }) : joinRoom(socket)({ id, ...payload })
     } catch (e) {
       // room cannot be recovered
       typeof recoveryToken !== 'undefined' && recoveryToken !== 'undefined' && console.info('could not recover from token:', recoveryToken, e)
