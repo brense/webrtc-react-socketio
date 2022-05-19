@@ -8,6 +8,8 @@ import createIoSignalingChannel, { SignalingChannelProvider } from './signaling'
 import App from './App'
 import moment from 'moment'
 import 'moment/locale/nl'
+import { SnackbarProvider } from './useSnackbar'
+import { UsernameDialogProvider } from './useUsernameDialog'
 
 moment.locale('nl')
 
@@ -32,8 +34,12 @@ root.render(
   <React.StrictMode>
     <SignalingChannelProvider signalingChannel={signalingChannel}>
       <ThemeProvider theme={theme}>
-        <CssBaseline />
-        <App />
+        <SnackbarProvider>
+          <UsernameDialogProvider>
+            <CssBaseline />
+            <App />
+          </UsernameDialogProvider>
+        </SnackbarProvider>
       </ThemeProvider>
     </SignalingChannelProvider>
   </React.StrictMode>

@@ -6,7 +6,7 @@ import express from 'express'
 import http from 'http'
 import { Server as WebSocketServer } from 'socket.io'
 import serveStatic from './serveStatic'
-import { applySignalingMiddleware, applyPeerDiscoveryMiddleware } from './server'
+import { applySignalingMiddleware, applyPeerDiscoveryMiddleware, Room } from './server'
 import applyIceConfigMiddleware from './iceConfigMiddleware'
 
 dotenv.config()
@@ -17,9 +17,8 @@ const {
   CORS_ORIGIN = 'http://localhost:3000'
 } = process.env
 
-const rooms: Array<{ id: string, name?: string, broadcaster?: string }> = []
-
-const broadcasts: { [key: string]: string } = {};
+const rooms: Room[] = []
+const peers: Array<{ socketId: string, peerId: string }> = []
 
 // parse process args
 const { port, jwtSecret } = yargs.options({
@@ -38,15 +37,15 @@ serveStatic(app)
 applyIceConfigMiddleware(websocket)
 
 applyPeerDiscoveryMiddleware(websocket, {
-  rooms, jwtSecret, onRoomsChanged: rooms => {
+  peers, rooms, jwtSecret, onRoomsChanged: rooms => {
     websocket.emit('rooms', rooms)
   }
 })
 
-applySignalingMiddleware(websocket, { rooms })
+applySignalingMiddleware(websocket, { peers, rooms })
 
 websocket.on('connection', socket => {
-  console.info(`socket ${socket.id} connected`)
+  console.info(`socket ${socket.handshake.query.peerId} connected`)
   socket.emit('rooms', rooms)
 })
 

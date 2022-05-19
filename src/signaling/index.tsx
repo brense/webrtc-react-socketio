@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react'
 import { Subject } from 'rxjs'
 import io, { ManagerOptions, SocketOptions } from 'socket.io-client'
+import { v4 as uuid } from 'uuid'
 import { CandidatePayload, ClientPayload, OnResponseCallback, RoomPayload, SessionDescriptionPayload } from './types'
 
 const onConnect = new Subject<string>()
@@ -10,15 +11,17 @@ const onNewMember = new Subject<ClientPayload & { room: string }>()
 const onSessionDescription = new Subject<SessionDescriptionPayload>()
 const onIceCandidate = new Subject<CandidatePayload>()
 
+const peerId = uuid()
+
 function createIoSignalingChannel(uri: string, opts?: Partial<ManagerOptions & SocketOptions> | undefined) {
   let recoveryToken: string | undefined = undefined
-  const socket = io(uri, { ...opts, query: { ...opts?.query, recoveryToken } })
+  const socket = io(uri, { ...opts, query: { ...opts?.query, recoveryToken, peerId } })
   socket.io.on('reconnect_attempt', () => {
     socket.io.opts.query = { ...socket.io.opts.query, recoveryToken }
   })
   socket.on('connect', () => {
-    console.log(`Connected to websocket, localPeerId: ${socket.id}`)
-    onConnect.next(socket.id)
+    console.log(`Connected to websocket, localPeerId: ${peerId}, socketId: ${socket.id}`)
+    onConnect.next(peerId)
   })
 
   socket.on('new member', payload => onNewMember.next(payload)) // a new member has joined your room
@@ -27,11 +30,11 @@ function createIoSignalingChannel(uri: string, opts?: Partial<ManagerOptions & S
   socket.on('candidate', payload => onIceCandidate.next(payload)) // received an icecandidate from another peer
   socket.on('disconnect', () => onDisconnect.next()) // socket server has disconnected
 
-  function broadcast(payload: Omit<RoomPayload, 'from' | 'room'> & { room?: string, [key: string]: any }, onResponse?: OnResponseCallback) {
+  function broadcast(payload: Omit<RoomPayload, 'from' | 'id'> & { id?: string }, onResponse?: OnResponseCallback) {
     socket.emit('broadcast', payload, handleResponse(onResponse))
   }
 
-  function join(payload: Omit<RoomPayload, 'from' | 'room'> & { room?: string, [key: string]: any }, onResponse?: OnResponseCallback) {
+  function join(payload: Omit<RoomPayload, 'from' | 'id'> & { id?: string }, onResponse?: OnResponseCallback) {
     socket.emit('join', payload, handleResponse(onResponse))
   }
 
@@ -45,15 +48,15 @@ function createIoSignalingChannel(uri: string, opts?: Partial<ManagerOptions & S
     socket.close()
   }
 
-  function handleResponse(onResponse?: (payload: { room: string, recoveryToken: string }) => void) {
-    return (payload: { recoveryToken: string, room: string }) => {
+  function handleResponse(onResponse?: OnResponseCallback) {
+    return (payload: { recoveryToken: string, room: RoomPayload }) => {
       recoveryToken = payload.recoveryToken
       onResponse && onResponse(payload)
     }
   }
 
   return {
-    me: () => socket.id,
+    peerId,
     connect: () => !socket.connected && socket.connect(),
     disconnect,
     broadcast,

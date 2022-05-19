@@ -17,9 +17,11 @@ export type CandidatePayload = {
 }
 
 export type RoomPayload = {
-  from: string
-  room: string
-  isBroadcast?: boolean
+  id: string,
+  from: string,
+  broadcaster?: string,
+  hidden?: boolean,
+  [key: string]: any
 }
 
-export type OnResponseCallback = (payload: { room: string, recoveryToken: string }) => void
+export type OnResponseCallback = (payload: { room: RoomPayload, recoveryToken: string }) => void
