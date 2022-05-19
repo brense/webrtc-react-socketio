@@ -6,55 +6,47 @@ import express from 'express'
 import http from 'http'
 import { Server as WebSocketServer } from 'socket.io'
 import serveStatic from './serveStatic'
-import { applySignalingMiddleware } from './server'
+import { applySignalingMiddleware, applyPeerDiscoveryMiddleware, Room } from './server'
+import applyIceConfigMiddleware from './iceConfigMiddleware'
 
 dotenv.config()
 
 const {
-  ICE_ADDRESS = 'openrelay.metered.ca',
-  ICE_PORT = '80',
-  ICE_SSH_PORT = '443',
-  ICE_USER = 'openrelayproject',
-  ICE_CREDENTIAL = 'openrelayproject',
-  PORT = '3001'
+  PORT = '3001',
+  JWT_SECRET = 'NOT_VERY_SECRET',
+  CORS_ORIGIN = 'http://localhost:3000'
 } = process.env
 
-export const iceServers = [
-  { urls: `stun:${ICE_ADDRESS}:${ICE_PORT}` },
-  { urls: `turn:${ICE_ADDRESS}:${ICE_PORT}`, username: ICE_USER, credential: ICE_CREDENTIAL },
-  { urls: `turn:${ICE_ADDRESS}:${ICE_SSH_PORT}`, username: ICE_USER, credential: ICE_CREDENTIAL },
-  { urls: `turn:${ICE_ADDRESS}:${ICE_SSH_PORT}?transport=tcp`, username: ICE_USER, credential: ICE_CREDENTIAL }
-]
-
-console.info('configured ice servers:', iceServers)
+const rooms: Room[] = []
+const peers: Array<{ socketId: string, peerId: string }> = []
 
 // parse process args
-export const { port } = yargs.options({
-  'port': {
-    alias: 'p',
-    type: 'number',
-    default: Number(PORT)
-  }
+const { port, jwtSecret } = yargs.options({
+  port: { alias: 'p', type: 'number', default: Number(PORT) },
+  jwtSecret: { type: 'string', default: JWT_SECRET }
 }).argv
 
 // init websocket server
 const app = express()
-export const httpServer = http.createServer(app)
-export const websocket = new WebSocketServer(httpServer)
+const httpServer = http.createServer(app)
+const websocket = new WebSocketServer(httpServer, { cors: { origin: CORS_ORIGIN } })
 
 // serve static files
 serveStatic(app)
 
-// send ice server config to connected peer
-websocket.use((socket, next) => {
-  socket.emit('config', iceServers)
-  next()
+applyIceConfigMiddleware(websocket)
+
+applyPeerDiscoveryMiddleware(websocket, {
+  peers, rooms, jwtSecret, onRoomsChanged: rooms => {
+    websocket.emit('rooms', rooms)
+  }
 })
 
-applySignalingMiddleware(websocket)
+applySignalingMiddleware(websocket, { peers, rooms })
 
 websocket.on('connection', socket => {
-  console.info(`peer ${socket.id} connected`)
+  console.info(`socket ${socket.handshake.query.peerId} connected`)
+  socket.emit('rooms', rooms)
 })
 
 httpServer.listen(port, '0.0.0.0', () => console.log(`🚀 Server ready at ws://localhost:${port}`))

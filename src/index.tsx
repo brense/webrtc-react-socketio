@@ -1,14 +1,15 @@
 import React from 'react'
-import { createRoot } from 'react-dom/client'
+import ReactDOM from 'react-dom/client'
+import './index.css'
 import reportWebVitals from './reportWebVitals'
-import { createWebRTCClient, WebRTCClientProvider } from './webrtc'
-import { createIoSignalingChannel, SignalingChannelProvider } from './signaling'
 import { createTheme, CssBaseline, ThemeProvider } from '@mui/material'
 import { pink, teal } from '@mui/material/colors'
+import createIoSignalingChannel, { SignalingChannelProvider } from './signaling'
+import App from './App'
 import moment from 'moment'
 import 'moment/locale/nl'
-import './index.css'
-import App from './App'
+import { SnackbarProvider } from './useSnackbar'
+import { UsernameDialogProvider } from './useUsernameDialog'
 
 moment.locale('nl')
 
@@ -16,7 +17,6 @@ const port = window.location.port || (window.location.protocol === 'https:' ? 44
 const socketUrl = `${window.location.protocol}//${window.location.hostname}:${port}`
 
 const signalingChannel = createIoSignalingChannel(socketUrl, { autoConnect: true })
-const webRTCClient = createWebRTCClient({ signalingChannel })
 
 const theme = createTheme({
   palette: {
@@ -26,17 +26,24 @@ const theme = createTheme({
   }
 })
 
-const root = createRoot(document.getElementById('root') as HTMLElement)
-root.render(<React.StrictMode>
-  <SignalingChannelProvider signalingChannel={signalingChannel}>
-    <WebRTCClientProvider client={webRTCClient}>
+const root = ReactDOM.createRoot(
+  document.getElementById('root') as HTMLElement
+)
+
+root.render(
+  <React.StrictMode>
+    <SignalingChannelProvider signalingChannel={signalingChannel}>
       <ThemeProvider theme={theme}>
-        <CssBaseline />
-        <App />
+        <SnackbarProvider>
+          <UsernameDialogProvider>
+            <CssBaseline />
+            <App />
+          </UsernameDialogProvider>
+        </SnackbarProvider>
       </ThemeProvider>
-    </WebRTCClientProvider>
-  </SignalingChannelProvider>
-</React.StrictMode>)
+    </SignalingChannelProvider>
+  </React.StrictMode>
+)
 
 // If you want to start measuring performance in your app, pass a function
 // to log results (for example: reportWebVitals(console.log))

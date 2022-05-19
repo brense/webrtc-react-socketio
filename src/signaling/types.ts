@@ -1,5 +1,3 @@
-import createIoSignalingChanel from './signalingChannel'
-
 export type ClientPayload = {
   from: string
 }
@@ -13,15 +11,17 @@ export type SessionDescriptionPayload = {
 
 export type CandidatePayload = {
   room: string
-  candidate: RTCIceCandidateInit
+  candidate: RTCIceCandidateInit | null
   to: string
   from: string
 }
 
 export type RoomPayload = {
-  from: string
-  room: string
-  isBroadcast?: boolean
+  id: string,
+  from: string,
+  broadcaster?: string,
+  hidden?: boolean,
+  [key: string]: any
 }
 
-export type SignalingChanel = ReturnType<typeof createIoSignalingChanel>
+export type OnResponseCallback = (payload: { room: RoomPayload, recoveryToken: string }) => void
