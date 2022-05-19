@@ -16,7 +16,9 @@
     ]
   },
   "include": [
-    "src/signalingServer.ts"
+    "src/signalingServer.ts",
+    "src/serveStatic.ts",
+    "src/iceConfigMiddleware.ts"
   ],
   "exclude": [
     "node_modules"
