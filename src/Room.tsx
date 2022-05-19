@@ -1,4 +1,4 @@
-import React, { PropsWithChildren, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React, { PropsWithChildren, useCallback, useEffect, useRef, useState } from 'react'
 import { Box, Icon, IconButton, List, ListItem, ListItemText, TextField, Typography } from '@mui/material'
 import { usePeerConnection } from './webrtc'
 import { useSignalingChannel } from './signaling'
