@@ -20,10 +20,10 @@ type JoinRoomCallback = (payload: { room: { id: string, name?: string, broadcast
 
 function applyPeerDiscoveryMiddleware(websocket: Server, { peers, rooms = [], jwtSecret, onRoomsChanged }: Options) {
   websocket.use((socket, next) => {
-    attemptRecoverRoom(socket.handshake.query.recoveryToken as string || '', socket)
     if (socket.handshake.query.peerId) {
       peers.push({ socketId: socket.id, peerId: socket.handshake.query.peerId as string })
     }
+    attemptRecoverRoom(socket.handshake.query.recoveryToken as string || '', socket)
     socket.on('join', joinRoom(socket))
     socket.on('broadcast', assignBroadcaster(socket))
     socket.on('disconnecting', () => handleLeave(socket))
@@ -80,7 +80,6 @@ function applyPeerDiscoveryMiddleware(websocket: Server, { peers, rooms = [], jw
   function attemptRecoverRoom(recoveryToken: string, socket: Socket) {
     try {
       const { id, broadcaster, ...payload } = jwt.verify(recoveryToken as string || '', jwtSecret) as Room
-      console.log('token', id, broadcaster, payload)
       const match = rooms.find(r => r.id === id)
       if (broadcaster && match && match.broadcaster !== broadcaster) {
         throw new Error(`${match.broadcaster} took over the broadcast while you (${broadcaster}) were not connected`)

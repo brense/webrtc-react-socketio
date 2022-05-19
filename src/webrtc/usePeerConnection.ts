@@ -101,7 +101,6 @@ function usePeerConnection<T extends { [key: string]: any }>({ room: roomCheck, 
   })
 
   const destroyConnection = useCallback((identifier: string) => {
-    console.log('destroy connection', identifier)
     channels[identifier]?.close()
     senders[identifier]?.track?.stop()
     connections[identifier]?.close()
@@ -117,7 +116,6 @@ function usePeerConnection<T extends { [key: string]: any }>({ room: roomCheck, 
       onLocalDescription: sdp => sendSessionDescription({ sdp, room, to: remotePeerId }),
       onIceCandidate: candidate => sendIceCandidate({ candidate, room, to: remotePeerId })
     })
-    console.log(connection, room, remotePeerId)
     try {
       if (sdp?.type === 'offer') {
         await connection.setRemoteDescription(sdp)

@@ -17,7 +17,7 @@ function createIoSignalingChannel(uri: string, opts?: Partial<ManagerOptions & S
   let recoveryToken: string | undefined = undefined
   const socket = io(uri, { ...opts, query: { ...opts?.query, recoveryToken, peerId } })
   socket.io.on('reconnect_attempt', () => {
-    socket.io.opts.query = { ...socket.io.opts.query, recoveryToken }
+    socket.io.opts.query = { ...socket.io.opts.query, recoveryToken, peerId }
   })
   socket.on('connect', () => {
     console.log(`Connected to websocket, localPeerId: ${peerId}, socketId: ${socket.id}`)
