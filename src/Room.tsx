@@ -127,8 +127,8 @@ function Room({ room: { id: room, broadcaster }, username, configuration }: Prop
     }
   }, [handleMemberLeave, socket])
 
-  return <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-    <List sx={{ flex: 1 }}>
+  return <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', overflow: 'hidden', flex: 1, minWidth: 300 }}>
+    <List>
       {messages.map(({ message, peerId, username, date }) => <ListItem key={date + peerId}>
         <ListItemText primary={username} secondary={message} />
       </ListItem>)}
