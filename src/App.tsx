@@ -72,7 +72,7 @@ function App() {
         </Box>
       </Toolbar>
     </AppBar>
-    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', flex: 1, overflow: 'hidden' }}>
       {selectedRoom && username ? <Room room={selectedRoom} username={username} configuration={configuration} /> : <Card component="form" onSubmit={handleSubmit} autoComplete="off">
         {rooms.length > 0 && <CardHeader title="Welcome!" />}
         <List subheader={rooms.length > 0 ? <ListSubheader>Join a room:</ListSubheader> : null} disablePadding sx={{ maxHeight: 300, overflow: 'auto' }}>
