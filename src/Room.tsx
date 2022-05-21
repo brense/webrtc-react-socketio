@@ -2,6 +2,7 @@ import React, { PropsWithChildren, useCallback, useEffect, useRef, useState } fr
 import { Box, Icon, IconButton, List, ListItem, ListItemText, TextField, Typography } from '@mui/material'
 import { usePeerConnection } from './webrtc'
 import { useSignalingChannel } from './signaling'
+import moment from 'moment'
 
 type MessageData = {
   type: 'system' | 'user',
@@ -16,7 +17,13 @@ function Room({ room: { id: room, broadcaster }, username, configuration }: Prop
   const [messages, setMessages] = useState<MessageData[]>([])
   const audioRef = useRef<HTMLAudioElement>(null)
   const streamRef = useRef<MediaStream>()
+  const messageListEndRef = useRef<HTMLDivElement>(null)
   const { socket, peerId } = useSignalingChannel()
+
+  useEffect(() => {
+    console.log('scrolll')
+    messageListEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages])
 
   useEffect(() => {
     console.log('members changed', members)
@@ -127,14 +134,18 @@ function Room({ room: { id: room, broadcaster }, username, configuration }: Prop
     }
   }, [handleMemberLeave, socket])
 
-  return <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-    <List sx={{ flex: 1 }}>
-      {messages.map(({ message, peerId, username, date }) => <ListItem key={date + peerId}>
-        <ListItemText primary={username} secondary={message} />
-      </ListItem>)}
-    </List>
+  return <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', alignItems: 'center', overflow: 'hidden', flex: 1, width: '100%' }}>
+    <Box sx={{ width: '100%', overflow: 'auto', display: 'flex', justifyContent: 'center' }}>
+      <List sx={{ minWidth: 360 }}>
+        {messages.map(({ message, peerId, username, date }) => <ListItem key={moment(date).format('x') + peerId}>
+          <Typography sx={{ marginRight: 2 }} variant="body2" component="code" color="textSecondary">{moment(date).format('HH:mm:ss')}</Typography>
+          <ListItemText primary={username} secondary={message} />
+        </ListItem>)}
+        <span ref={messageListEndRef} />
+      </List>
+    </Box>
     <audio ref={audioRef} autoPlay />
-    <Box sx={{ display: 'flex', alignItems: 'center' }} component="form" onSubmit={handleSubmitMessage} autoComplete="off">
+    <Box sx={{ display: 'flex', alignItems: 'center', minWidth: 360 }} component="form" onSubmit={handleSubmitMessage} autoComplete="off">
       <TextField variant="filled" name="message" role="presentation" autoComplete="off" autoFocus fullWidth />
       <IconButton size="small" onClick={toggleBroadcast}><Icon>mic</Icon></IconButton>
     </Box>
