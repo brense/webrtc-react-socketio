@@ -10,7 +10,7 @@ function App() {
   const [selectedRoom, setSelectedRoom] = useState<{ id: string, name?: string, broadcaster?: string }>()
   const [username, setUsername] = useState<string>()
   const [rooms, setRooms] = useState<Array<{ id: string, name?: string, broadcaster?: string }>>([])
-  const { isConnected, join, broadcast, socket } = useSignalingChannel()
+  const { isConnected, join, leave, broadcast, socket } = useSignalingChannel()
   const shareLink = useMemo(() => selectedRoom ? `${window.location.protocol}//${window.location.hostname}:${window.location.port}?roomId=${selectedRoom.id}` : undefined, [selectedRoom])
   const { openSnackbar } = useSnackbar()
   const { openUsernameDialog } = useUsernameDialog()
@@ -20,6 +20,11 @@ function App() {
     const payload = { id, hidden, name: (!name || name === '') ? undefined : name }
     isBroadcast ? broadcast(payload, response => setSelectedRoom(response.room)) : join(payload, response => setSelectedRoom(response.room))
   }, [join, broadcast])
+
+  const handleLeave = useCallback(() => {
+    selectedRoom && leave({ room: selectedRoom.id })
+    setSelectedRoom(undefined)
+  }, [leave])
 
   const handleSubmit = useCallback((event: FormEvent) => {
     event.preventDefault()
@@ -34,10 +39,6 @@ function App() {
     openSnackbar(<Alert severity="success">Copied!</Alert>)
   }, [shareLink])
 
-  const handleAny = useCallback((eventName: string, payload: any) => {
-    //console.log('any', eventName, payload)
-  }, [])
-
   useEffect(() => {
     const id = new URLSearchParams(window.location.search).get('roomId')
     if (id) {
@@ -46,11 +47,9 @@ function App() {
   }, [])
 
   useEffect(() => {
-    socket.onAny(handleAny)
     socket.on('config', iceServers => setConfiguration(config => ({ ...config, iceServers })))
     socket.on('rooms', setRooms)
     return () => {
-      socket.offAny(handleAny)
       socket.off('config')
       socket.off('rooms', setRooms)
     }
@@ -73,7 +72,7 @@ function App() {
       </Toolbar>
     </AppBar>
     <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', flex: 1, overflow: 'hidden' }}>
-      {selectedRoom && username ? <Room room={selectedRoom} username={username} configuration={configuration} /> : <Card component="form" onSubmit={handleSubmit} autoComplete="off">
+      {selectedRoom && username ? <Room room={selectedRoom} username={username} configuration={configuration} onLeave={handleLeave} /> : <Card component="form" onSubmit={handleSubmit} autoComplete="off">
         {rooms.length > 0 && <CardHeader title="Welcome!" />}
         <List subheader={rooms.length > 0 ? <ListSubheader>Join a room:</ListSubheader> : null} disablePadding sx={{ maxHeight: 300, overflow: 'auto' }}>
           {rooms.map(({ id, name }) => <ListItem key={id}>
