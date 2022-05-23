@@ -1,5 +1,5 @@
 import React, { PropsWithChildren, useCallback, useEffect, useRef, useState } from 'react'
-import { Box, Icon, IconButton, List, ListItem, ListItemText, TextField, Typography } from '@mui/material'
+import { Badge, Box, FilledInput, Icon, IconButton, List, ListItem, ListItemText, Typography } from '@mui/material'
 import { usePeerConnection } from './webrtc'
 import { useSignalingChannel } from './signaling'
 import moment from 'moment'
@@ -12,16 +12,16 @@ type MessageData = {
   date: Date
 }
 
-function Room({ room: { id: room, broadcaster }, username, configuration }: PropsWithChildren<{ room: { id: string, name?: string, broadcaster?: string }, username: string, configuration?: RTCConfiguration }>) {
+function Room({ room: { id: room, broadcaster }, username, configuration, onLeave }: PropsWithChildren<{ room: { id: string, name?: string, broadcaster?: string }, username: string, configuration?: RTCConfiguration, onLeave?: () => void }>) {
   const [members, setMembers] = useState<Array<{ peerId: string, username: string }>>([])
   const [messages, setMessages] = useState<MessageData[]>([])
   const audioRef = useRef<HTMLAudioElement>(null)
   const streamRef = useRef<MediaStream>()
   const messageListEndRef = useRef<HTMLDivElement>(null)
   const { socket, peerId } = useSignalingChannel()
+  const [isRecording, setIsRecording] = useState(false)
 
   useEffect(() => {
-    console.log('scrolll')
     messageListEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
@@ -99,10 +99,12 @@ function Room({ room: { id: room, broadcaster }, username, configuration }: Prop
         })
       stream.getTracks().forEach(track => addTrack(track, stream))
       streamRef.current = stream
+      setIsRecording(true)
     } else {
       streamRef.current.getTracks().forEach(track => track.stop())
       removeTrack()
       streamRef.current = undefined
+      setIsRecording(false)
     }
   }, [addTrack])
 
@@ -146,8 +148,9 @@ function Room({ room: { id: room, broadcaster }, username, configuration }: Prop
     </Box>
     <audio ref={audioRef} autoPlay />
     <Box sx={{ display: 'flex', alignItems: 'center', minWidth: 360 }} component="form" onSubmit={handleSubmitMessage} autoComplete="off">
-      <TextField variant="filled" name="message" role="presentation" autoComplete="off" autoFocus fullWidth />
-      <IconButton size="small" onClick={toggleBroadcast}><Icon>mic</Icon></IconButton>
+      <FilledInput sx={{ marginRight: 1 }} name="message" role="presentation" autoComplete="off" autoFocus fullWidth />
+      <IconButton size="small" onClick={toggleBroadcast}><Icon color={isRecording ? 'success' : 'inherit'}>{isRecording ? 'mic' : 'mic_off'}</Icon></IconButton>
+      <IconButton disabled={members.length === 0}><Badge badgeContent={members.length} color="primary"><Icon>person</Icon></Badge></IconButton>
     </Box>
   </Box >
 }
