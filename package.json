@@ -1,6 +1,6 @@
 {
   "name": "webrtc-react-socketio",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "main": "./webrtc/index.js",
   "types": "./webrtc/index.d.ts",
   "author": "Rense Bakker",
