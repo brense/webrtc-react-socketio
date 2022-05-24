@@ -20,7 +20,8 @@
     "rxjs": "^7.5.5",
     "socket.io": "^4.5.0",
     "socket.io-client": "^4.5.0",
-    "yargs": "^17.5.0"
+    "yargs": "^17.5.0",
+    "uuid": "^8.3.2"
   },
   "scripts": {
     "build:npm": "rimraf lib-esm && tsc --p ./tsconfig.npm.json && copyfiles package.json README.md lib-esm && npm publish ./lib-esm",
@@ -75,7 +76,6 @@
     "rimraf": "^3.0.2",
     "ts-node-dev": "^1.1.8",
     "typescript": "^4.6.4",
-    "uuid": "^8.3.2",
     "vite": "^2.9.9",
     "vite-plugin-env-compatible": "^1.1.1",
     "vite-plugin-svgr": "^2.1.0",
