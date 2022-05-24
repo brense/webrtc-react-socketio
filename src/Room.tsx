@@ -106,7 +106,7 @@ function Room({ room: { id: room, broadcaster }, username, configuration, onLeav
       streamRef.current = undefined
       setIsRecording(false)
     }
-  }, [addTrack])
+  }, [addTrack, removeTrack])
 
   const handleNewMember = useCallback(({ room, from: remotePeerId }: { room: string, from: string }) => createDataChannel({ room, remotePeerId }), [])
 
