@@ -6,7 +6,11 @@ import useSnackbar from './useSnackbar'
 import useUsernameDialog from './useUsernameDialog'
 
 function App() {
-  const [configuration, setConfiguration] = useState<RTCConfiguration>()
+  const [configuration, setConfiguration] = useState<RTCConfiguration>({
+    iceServers: [{ urls: ['stun:stun.l.google.com:19302'] }],
+    iceTransportPolicy: 'all',
+    iceCandidatePoolSize: 0
+  })
   const [selectedRoom, setSelectedRoom] = useState<{ id: string, name?: string, broadcaster?: string }>()
   const [username, setUsername] = useState<string>()
   const [rooms, setRooms] = useState<Array<{ id: string, name?: string, broadcaster?: string }>>([])
