@@ -2,18 +2,16 @@
 
 This project aims to provide an all in one package to use [WebRTC features](https://webrtc.org/getting-started/overview) in React including signaling server middleware for a NodeJS/[Express](https://expressjs.com/) server.
 
-## Table of Contents
-- [3-in-1 WebRTC React Socket.io](#3-in-1-webrtc-react-socketio)
-  - [Table of Contents](#table-of-contents)
-  - [Getting started](#getting-started)
-    - [Installation](#installation)
-    - [Client implementation (React)](#client-implementation-react)
-      - [Step 1: Create a signaling channel](#step-1-create-a-signaling-channel)
-      - [Step 2: Handle room creation](#step-2-handle-room-creation)
-      - [Step 3: Create a room component](#step-3-create-a-room-component)
-      - [Room example with data channels](#room-example-with-data-channels)
-    - [Signaling server implementation (NodeJS)](#signaling-server-implementation-nodejs)
-  - [Reference](#reference)
+### Table of Contents
+- [Getting started](#getting-started)
+  - [Installation](#installation)
+  - [Client implementation (React)](#client-implementation-react)
+    - [Step 1: Create a signaling channel](#step-1-create-a-signaling-channel)
+    - [Step 2: Handle room creation](#step-2-handle-room-creation)
+    - [Step 3: Create a room component](#step-3-create-a-room-component)
+    - [Room example with data channels](#room-example-with-data-channels)
+  - [Signaling server implementation (NodeJS)](#signaling-server-implementation-nodejs)
+- [Reference](#reference)
 
 ## Getting started
 

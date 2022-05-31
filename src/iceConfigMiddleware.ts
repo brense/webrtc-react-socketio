@@ -1,18 +1,24 @@
 import { Server } from 'socket.io'
 
-const {
-  ICE_ADDRESS = 'openrelay.metered.ca',
-  ICE_PORT = '80',
-  ICE_SSH_PORT = '443',
-  ICE_USER = 'openrelayproject',
-  ICE_CREDENTIAL = 'openrelayproject'
-} = process.env
-
 const iceServers = [
-  { urls: `stun:${ICE_ADDRESS}:${ICE_PORT}` },
-  { urls: `turn:${ICE_ADDRESS}:${ICE_PORT}`, username: ICE_USER, credential: ICE_CREDENTIAL },
-  { urls: `turn:${ICE_ADDRESS}:${ICE_SSH_PORT}`, username: ICE_USER, credential: ICE_CREDENTIAL },
-  { urls: `turn:${ICE_ADDRESS}:${ICE_SSH_PORT}?transport=tcp`, username: ICE_USER, credential: ICE_CREDENTIAL }
+  { urls: ['stun.gmx.de:3478', 'stun.gmx.net:3478'] },
+  { urls: 'stun.hosteurope.de:3478' },
+  { urls: 'stun.avigora.fr:3478' },
+  { urls: 'stun.liveo.fr:3478' },
+  { urls: 'stun.nottingham.ac.uk:3478' },
+  { urls: 'stun.cope.es:3478' },
+  { urls: 'stun.acrobits.cz:3478' },
+  { urls: 'stun.altar.com.pl:3478' },
+  { urls: 'stun:stun.l.google.com:19302' },
+  { urls: 'stun.faktortel.com.au:3478' },
+  { urls: 'stun.freecall.com:3478' },
+  { urls: 'stun:openrelay.metered.ca:80', },
+  { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject', },
+  { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject', },
+  { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject', },
+  { urls: 'turn:turn01.hubl.in?transport=udp' },
+  { urls: 'turn:turn02.hubl.in?transport=tcp' },
+  { urls: 'turn:turn.anyfirewall.com:443?transport=tcp', credential: 'webrtc', username: 'webrtc' }
 ]
 
 console.info('configured ice servers:', iceServers)

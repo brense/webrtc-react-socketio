@@ -25,10 +25,6 @@ function Room({ room: { id: room, broadcaster }, username, configuration, onLeav
     messageListEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  useEffect(() => {
-    console.log('members changed', members)
-  }, [members])
-
   const handleNewMemberMessage = useCallback(async ({ peerId, username, ...data }: MessageData) => {
     const isNew = await new Promise(resolve => {
       setMembers(members => {
@@ -72,6 +68,7 @@ function Room({ room: { id: room, broadcaster }, username, configuration, onLeav
     },
     onChannelOpen: () => sendMessage({ type: 'system', peerId, username, message: 'new member', date: new Date() }),
     onMessage,
+    onIceCandidateError: evt => console.info('ice candidate error', evt),
     ...configuration
   })
 

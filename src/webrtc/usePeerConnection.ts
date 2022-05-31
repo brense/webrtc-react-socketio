@@ -12,7 +12,7 @@ type CreatePeerConnectionParams = {
   onDataChannel?: (event: RTCDataChannelEvent) => void,
   onTrack?: (event: RTCTrackEvent) => void,
   onNegotiationNeeded: (options?: RTCOfferOptions) => void,
-  onIceCandidate: (event: RTCPeerConnectionIceEvent) => void
+  onIceCandidate: (event: RTCPeerConnectionIceEvent) => void,
 }
 
 type DataChannelListeners<T extends { [key: string]: any }> = {
@@ -28,7 +28,7 @@ type UsePeerConnectionParams = {
   onTrack?: (track: RTCTrackEvent) => void
 }
 
-function usePeerConnection<T extends { [key: string]: any }>({ room: roomCheck, onTrack, onMessage, onChannelOpen, onChannelClose, ...configuration }: { room: string, onTrack?: (track: RTCTrackEvent) => void } & DataChannelListeners<T> & RTCConfiguration) {
+function usePeerConnection<T extends { [key: string]: any }>({ room: roomCheck, onTrack, onMessage, onChannelOpen, onChannelClose, onIceCandidateError, ...configuration }: { room: string, onIceCandidateError?: (event: Event) => void, onTrack?: (track: RTCTrackEvent) => void } & DataChannelListeners<T> & RTCConfiguration) {
   const trackRef = useRef<{ track: MediaStreamTrack, streams: MediaStream[] }>()
 
   const setDataChannelListeners = useCallback((channel: RTCDataChannel, dataChannelListeners: DataChannelListeners<T>) => {
@@ -47,12 +47,14 @@ function usePeerConnection<T extends { [key: string]: any }>({ room: roomCheck, 
   }, [])
 
   const createPeerConnection = useCallback(({ identifier, onDataChannel, onTrack, onNegotiationNeeded, onIceCandidate, configuration }: CreatePeerConnectionParams) => {
+    console.info('using config:', configuration)
     const connection = new RTCPeerConnection(configuration)
     connection.onicecandidate = onIceCandidate
     connection.onnegotiationneeded = () => onNegotiationNeeded()
+    connection.oniceconnectionstatechange = () => connection.iceConnectionState === 'failed' && onNegotiationNeeded({ iceRestart: true })
     onDataChannel && (connection.ondatachannel = onDataChannel)
     onTrack && (connection.ontrack = onTrack)
-    connection.oniceconnectionstatechange = () => connection.iceConnectionState === 'failed' && onNegotiationNeeded({ iceRestart: true })
+    onIceCandidateError && (connection.onicecandidateerror = onIceCandidateError)
     connections[identifier] = connection
     if (trackRef.current && !senders[identifier]) {
       senders[identifier] = connection.addTrack(trackRef.current.track, ...trackRef.current.streams)

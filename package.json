@@ -25,7 +25,7 @@
   },
   "scripts": {
     "build:npm": "rimraf lib-esm && tsc --p ./tsconfig.npm.json && copyfiles package.json README.md lib-esm && npm publish ./lib-esm",
-    "start": "vite",
+    "start": "vite --host",
     "start:server": "ts-node-dev --project ./tsconfig.server.json ./src/signalingServer.ts",
     "build:app": "tsc && vite build",
     "serve": "vite preview",
