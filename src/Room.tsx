@@ -69,6 +69,7 @@ function Room({ room: { id: room, broadcaster }, username, configuration, onLeav
     onChannelOpen: () => sendMessage({ type: 'system', peerId, username, message: 'new member', date: new Date() }),
     onMessage,
     onIceCandidateError: evt => console.info('ice candidate error', evt),
+    onCreatingPeerConnection: config => console.info('using config', config),
     ...configuration
   })
 

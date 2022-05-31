@@ -10,7 +10,7 @@ const iceServers = [
   //{ urls: 'stun:stun.altar.com.pl:3478' },
   { urls: 'stun:rfh-auction-coturn.staging.rfh-auction.com:3478' },
   { urls: 'turn:rfh-auction-coturn.staging.rfh-auction.com:3478', username: 'coturn', credential: 'coturn' },
-  { urls: 'stun:stun.l.google.com:19302' },
+  // { urls: 'stun:stun.l.google.com:19302' },
   //{ urls: 'stun:stun.faktortel.com.au:3478' },
   //{ urls: 'stun:stun.freecall.com:3478' },
   //{ urls: 'stun:stun.anyfirewall.com:3478' },

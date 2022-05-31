@@ -28,7 +28,7 @@ type UsePeerConnectionParams = {
   onTrack?: (track: RTCTrackEvent) => void
 }
 
-function usePeerConnection<T extends { [key: string]: any }>({ room: roomCheck, onTrack, onMessage, onChannelOpen, onChannelClose, onIceCandidateError, ...configuration }: { room: string, onIceCandidateError?: (event: Event) => void, onTrack?: (track: RTCTrackEvent) => void } & DataChannelListeners<T> & RTCConfiguration) {
+function usePeerConnection<T extends { [key: string]: any }>({ room: roomCheck, onTrack, onMessage, onChannelOpen, onChannelClose, onIceCandidateError, onCreatingPeerConnection, ...configuration }: { room: string, onCreatingPeerConnection?: (configuration?: RTCConfiguration) => void, onIceCandidateError?: (event: Event) => void, onTrack?: (track: RTCTrackEvent) => void } & DataChannelListeners<T> & RTCConfiguration) {
   const trackRef = useRef<{ track: MediaStreamTrack, streams: MediaStream[] }>()
 
   const setDataChannelListeners = useCallback((channel: RTCDataChannel, dataChannelListeners: DataChannelListeners<T>) => {
@@ -47,7 +47,7 @@ function usePeerConnection<T extends { [key: string]: any }>({ room: roomCheck, 
   }, [])
 
   const createPeerConnection = useCallback(({ identifier, onDataChannel, onTrack, onNegotiationNeeded, onIceCandidate, configuration }: CreatePeerConnectionParams) => {
-    console.info('using config:', configuration)
+    onCreatingPeerConnection && onCreatingPeerConnection(configuration)
     const connection = new RTCPeerConnection(configuration)
     connection.onicecandidate = onIceCandidate
     connection.onnegotiationneeded = () => onNegotiationNeeded()
