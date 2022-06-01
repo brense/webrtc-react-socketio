@@ -1,18 +1,16 @@
-import { useCallback, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { useSignalingChannel } from '../signaling'
 import jsonDateReviver from './jsonDateReviver'
 
-const connections: { [key: string]: RTCPeerConnection } = {}
-const senders: { [key: string]: RTCRtpSender } = {}
-const channels: { [key: string]: RTCDataChannel } = {}
-
-type CreatePeerConnectionParams = {
-  identifier: string,
-  configuration?: RTCConfiguration,
+type PeerConnectionListeners = {
+  onNewPeerConnection?: (connection: RTCPeerConnection, identifier: string, configuration?: RTCConfiguration) => void,
   onDataChannel?: (event: RTCDataChannelEvent) => void,
   onTrack?: (event: RTCTrackEvent) => void,
-  onNegotiationNeeded: (options?: RTCOfferOptions) => void,
-  onIceCandidate: (event: RTCPeerConnectionIceEvent) => void,
+  onNegotiationNeeded?: (options?: RTCOfferOptions) => void,
+  onIceCandidate: (event?: RTCPeerConnectionIceEvent) => void,
+  onIceGatheringStateChange?: (event: Event) => void,
+  onIceCandidateError?: (event: Event) => void,
+  onIceConnectionStateChange?: (event: Event) => void
 }
 
 type DataChannelListeners<T extends { [key: string]: any }> = {
@@ -21,108 +19,98 @@ type DataChannelListeners<T extends { [key: string]: any }> = {
   onChannelClose?: (channel: RTCDataChannel) => void
 }
 
-type UsePeerConnectionParams = {
-  identifier: string,
-  onLocalDescription: (sdp: RTCSessionDescription | null) => void,
-  onIceCandidate: (candidate: RTCIceCandidate | null) => void,
-  onTrack?: (track: RTCTrackEvent) => void
-}
-
-function usePeerConnection<T extends { [key: string]: any }>({ room: roomCheck, onTrack, onMessage, onChannelOpen, onChannelClose, onIceCandidateError, onCreatingPeerConnection, ...configuration }: { room: string, onCreatingPeerConnection?: (configuration?: RTCConfiguration) => void, onIceCandidateError?: (event: Event) => void, onTrack?: (track: RTCTrackEvent) => void } & DataChannelListeners<T> & RTCConfiguration) {
+function usePeerConnection<T extends { [key: string]: any }>(room: string, { onNewPeerConnection, onIceCandidate, onDataChannel, onChannelOpen, onChannelClose, onMessage, ...peerConnectionListeners }: Omit<PeerConnectionListeners, 'onIceCandidate'> & { onIceCandidate?: (event?: RTCPeerConnectionIceEvent) => void } & DataChannelListeners<T>, configuration?: RTCConfiguration) {
   const trackRef = useRef<{ track: MediaStreamTrack, streams: MediaStream[] }>()
+  const peers = useRef<{ [key: string]: { connection: RTCPeerConnection, sender?: RTCRtpSender, channel?: RTCDataChannel } }>({})
+  const { sendIceCandidate, sendSessionDescription, socket } = useSignalingChannel()
+  const dataChannelListeners = useMemo(() => ({ onChannelOpen, onChannelClose, onMessage }), [onChannelOpen, onChannelClose, onMessage])
 
-  const setDataChannelListeners = useCallback((channel: RTCDataChannel, dataChannelListeners: DataChannelListeners<T>) => {
-    const { onMessage, onChannelOpen, onChannelClose } = dataChannelListeners
-    if (channel.readyState !== 'closed') {
-      channel.onmessage = message => {
-        onMessage && onMessage(JSON.parse(message.data, jsonDateReviver))
-      }
-      if (onChannelOpen) {
-        channel.onopen = () => onChannelOpen(channel)
-      }
-      if (onChannelClose) {
-        channel.onclose = () => onChannelClose(channel)
-      }
-    }
-  }, [])
-
-  const createPeerConnection = useCallback(({ identifier, onDataChannel, onTrack, onNegotiationNeeded, onIceCandidate, configuration }: CreatePeerConnectionParams) => {
-    onCreatingPeerConnection && onCreatingPeerConnection(configuration)
-    const connection = new RTCPeerConnection(configuration)
-    connection.onicecandidate = onIceCandidate
-    connection.onnegotiationneeded = () => onNegotiationNeeded()
-    connection.oniceconnectionstatechange = () => connection.iceConnectionState === 'failed' && onNegotiationNeeded({ iceRestart: true })
-    onDataChannel && (connection.ondatachannel = onDataChannel)
-    onTrack && (connection.ontrack = onTrack)
-    onIceCandidateError && (connection.onicecandidateerror = onIceCandidateError)
-    connections[identifier] = connection
-    if (trackRef.current && !senders[identifier]) {
-      senders[identifier] = connection.addTrack(trackRef.current.track, ...trackRef.current.streams)
-    }
-    return connection
-  }, [])
-
-  const getPeerConnection = useCallback(({ identifier, onLocalDescription, onIceCandidate }: UsePeerConnectionParams) => {
-    const connection = connections[identifier] || createPeerConnection({
-      identifier,
-      onDataChannel: event => {
-        setDataChannelListeners(event.channel, { onMessage, onChannelOpen, onChannelClose })
-        channels[identifier] = event.channel
-      },
-      onTrack: event => {
-        onTrack && onTrack(event)
-      },
-      onNegotiationNeeded: async (options?: RTCOfferOptions) => {
-        await connection.setLocalDescription(await connection.createOffer(options))
-        onLocalDescription(connection.localDescription)
-      },
-      onIceCandidate: event => {
-        onIceCandidate(event.candidate)
-      },
-      configuration
+  useEffect(() => {
+    Object.keys(peers.current).forEach(identifier => {
+      peers.current[identifier].connection.close()
+      peers.current[identifier].sender?.track?.stop()
+      peers.current[identifier].channel?.close()
     })
-    return connection
-  }, [configuration, createPeerConnection, onTrack, onChannelClose, onChannelOpen, onMessage, setDataChannelListeners])
+    peers.current = {}
+  }, [room])
 
-  const { sendSessionDescription, sendIceCandidate } = useSignalingChannel({
-    onSessionDescription: ({ room, sdp, from: remotePeerId }) => sdp && (!roomCheck || room === roomCheck) && receiveSessionDescription({
-      identifier: `${room},${remotePeerId}`,
-      sdp,
-      onLocalDescription: localSdp => localSdp && sendSessionDescription({ sdp: localSdp, room, to: remotePeerId })
-    }),
-    onIceCandidate: ({ room, candidate, from: remotePeerId }) => candidate && (!roomCheck || room === roomCheck) && receiveCandidate({
-      identifier: `${room},${remotePeerId}`,
-      candidate
-    }),
-    onNewMember: ({ room, from: remotePeerId }) => (!roomCheck || room === roomCheck) && getPeerConnection({
-      identifier: `${room},${remotePeerId}`,
-      onLocalDescription: sdp => sendSessionDescription({ sdp, room, to: remotePeerId }),
-      onIceCandidate: candidate => sendIceCandidate({ candidate, room, to: remotePeerId })
-    }),
-    onLeave: ({ room, from: remotePeerId }) => room && (!roomCheck || room === roomCheck) && destroyConnection(`${room},${remotePeerId}`)
-  })
+  const getPeer = useCallback(({ from: remotePeerId, room: roomCheck }: { from: string, room: string }) => {
+    if (roomCheck !== room) {
+      return
+    }
+    const identifier = `${room},${remotePeerId}`
+    if (!peers.current[identifier]) {
+      const connection = createPeerConnection({
+        ...peerConnectionListeners,
+        onIceCandidate: event => {
+          onIceCandidate && onIceCandidate(event)
+          event?.candidate && sendIceCandidate({ candidate: event.candidate, room, to: remotePeerId })
+        },
+        onLocalDescription: sdp => sendSessionDescription({ sdp, room, to: remotePeerId }),
+        onDataChannel: event => {
+          onDataChannel && onDataChannel(event)
+          peers.current[identifier].channel = event.channel
+          setDataChannelListeners(event.channel, dataChannelListeners)
+        }
+      }, configuration)
+      peers.current[identifier] = { connection }
+      onNewPeerConnection && onNewPeerConnection(connection, identifier, configuration)
+    }
+    return peers.current[identifier]
+  }, [configuration, room, peerConnectionListeners, onIceCandidate, onNewPeerConnection, sendIceCandidate, sendSessionDescription])
 
-  const destroyConnection = useCallback((identifier: string) => {
-    channels[identifier]?.close()
-    senders[identifier]?.track?.stop()
-    connections[identifier]?.close()
-    delete connections[identifier]
-    delete channels[identifier]
-    delete senders[identifier]
-  }, [])
+  const getPeersForRoom = useCallback(() => {
+    return Object.keys(peers.current).filter(identifier => identifier.indexOf(`${room},`) === 0).map(identifier => ({ ...peers.current[identifier], identifier }))
+  }, [room])
 
-  const receiveSessionDescription = useCallback(async ({ identifier, sdp, onLocalDescription }: { identifier: string, sdp: RTCSessionDescriptionInit, onLocalDescription: (sdp: RTCSessionDescription) => void, }) => {
-    const [room, remotePeerId] = identifier.split(',')
-    const connection = getPeerConnection({
-      identifier,
-      onLocalDescription: sdp => sendSessionDescription({ sdp, room, to: remotePeerId }),
-      onIceCandidate: candidate => sendIceCandidate({ candidate, room, to: remotePeerId })
+  const sendMessage = useCallback((data: T) => {
+    getPeersForRoom().filter(({ channel }) => channel?.readyState === 'open').forEach(({ channel }) => channel?.send(JSON.stringify(data)))
+  }, [room])
+
+  const createDataChannel = useCallback((identifier: string) => {
+    const { channel: existingChannel, connection } = peers.current[identifier]
+    const channel = existingChannel || connection.createDataChannel(identifier)
+    if (!existingChannel) {
+      peers.current[identifier].channel = channel
+    }
+    setDataChannelListeners(channel, dataChannelListeners)
+    return channel
+  }, [setDataChannelListeners, room])
+
+  const addTrack = useCallback((track: MediaStreamTrack, ...streams: MediaStream[]) => {
+    trackRef.current = { track, streams }
+    getPeersForRoom().forEach(({ connection, identifier }) => {
+      const sender = connection.addTrack(track, ...streams)
+      peers.current[identifier].sender = sender
     })
+  }, [room])
+
+  const removeTrack = useCallback(() => {
+    trackRef.current = undefined
+    getPeersForRoom().forEach(({ sender, connection }) => sender && connection.removeTrack(sender))
+  }, [room])
+
+  const destroyPeerConnection = useCallback(({ from: remotePeerId, room: roomCheck }: { from: string, room: string }) => {
+    if (roomCheck !== room) {
+      return
+    }
+    const identifier = `${room},${remotePeerId}`
+    peers.current[identifier]?.connection.close()
+    peers.current[identifier]?.sender?.track?.stop()
+    peers.current[identifier]?.channel?.close()
+    delete peers.current[identifier]
+  }, [room])
+
+  const receiveSessionDescription = useCallback(async ({ sdp, ...payload }: { from: string, room: string, sdp: RTCSessionDescriptionInit }) => {
+    if (payload.room !== room) {
+      return
+    }
+    const { connection } = getPeer(payload) as { connection: RTCPeerConnection }
     try {
       if (sdp?.type === 'offer') {
         await connection.setRemoteDescription(sdp)
         await connection.setLocalDescription(await connection.createAnswer())
-        connection.localDescription && onLocalDescription(connection.localDescription)
+        connection.localDescription && sendSessionDescription({ sdp: connection.localDescription, room, to: payload.from })
       } else if (sdp?.type === 'answer') {
         await connection.setRemoteDescription(sdp)
       } else {
@@ -131,61 +119,86 @@ function usePeerConnection<T extends { [key: string]: any }>({ room: roomCheck, 
     } catch (error) {
       console.error(error)
     }
-  }, [getPeerConnection, sendIceCandidate, sendSessionDescription])
+  }, [getPeer, sendIceCandidate, sendSessionDescription])
 
-  const receiveCandidate = useCallback(async ({ identifier, candidate }: { identifier: string, candidate: RTCIceCandidateInit }) => {
-    const [room, remotePeerId] = identifier.split(',')
-    const connection = getPeerConnection({
-      identifier,
-      onLocalDescription: sdp => sendSessionDescription({ sdp, room, to: remotePeerId }),
-      onIceCandidate: candidate => sendIceCandidate({ candidate, room, to: remotePeerId })
-    })
+  const receiveCandidate = useCallback(async ({ candidate, ...payload }: { from: string, room: string, candidate: RTCIceCandidateInit }) => {
+    if (payload.room !== room) {
+      return
+    }
+    const { connection } = getPeer(payload) as { connection: RTCPeerConnection }
     try {
       await connection.addIceCandidate(new RTCIceCandidate(candidate))
     } catch (error) {
       console.error(error)
     }
-  }, [getPeerConnection, sendIceCandidate, sendSessionDescription])
+  }, [getPeer, sendIceCandidate, sendSessionDescription])
 
-  const sendMessage = useCallback((data: T) => {
-    const identifiersForRoom = getChannelIdentifiersForRoom(roomCheck).filter(identifier => channels[identifier].readyState === 'open')
-    identifiersForRoom.forEach(identifier => channels[identifier]?.send(JSON.stringify(data)))
-  }, [roomCheck])
+  useEffect(() => {
+    socket.on('desc', receiveSessionDescription)
+    socket.on('candidate', receiveCandidate)
+    socket.on('new member', getPeer)
+    socket.on('leave', destroyPeerConnection)
+    return () => {
+      socket.off('desc', receiveSessionDescription)
+      socket.off('candidate', receiveCandidate)
+      socket.off('new member', getPeer)
+      socket.off('leave', destroyPeerConnection)
+    }
+  }, [socket, room])
 
-  const createDataChannel = useCallback(({ room, remotePeerId }: { room: string, remotePeerId: string }) => {
-    const identifier = `${room},${remotePeerId}`
-    const channel = connections[identifier]?.createDataChannel(identifier)
-    setDataChannelListeners(channel, { onMessage, onChannelOpen, onChannelClose })
-    channels[identifier] = channel
-  }, [onChannelClose, onChannelOpen, onMessage, roomCheck, setDataChannelListeners])
+  return { sendMessage, createDataChannel, addTrack, removeTrack }
+}
 
-  const addTrack = useCallback((track: MediaStreamTrack, ...streams: MediaStream[]) => {
-    trackRef.current = { track, streams }
-    getConnectionIdentifiersForRoom(roomCheck).forEach(identifier => {
-      const sender = connections[identifier]?.addTrack(track, ...streams)
-      senders[identifier] = sender
-    })
-  }, [roomCheck])
-
-  const removeTrack = useCallback(() => {
-    trackRef.current = undefined
-    getConnectionIdentifiersForRoom(roomCheck).forEach(identifier => senders[identifier] && connections[identifier]?.removeTrack(senders[identifier]))
-  }, [roomCheck])
-
-  return {
-    createDataChannel,
-    sendMessage,
-    addTrack,
-    removeTrack
+function setDataChannelListeners<T extends { [key: string]: any }>(channel: RTCDataChannel, dataChannelListeners: DataChannelListeners<T>) {
+  const { onMessage, onChannelOpen, onChannelClose } = dataChannelListeners
+  if (channel.readyState !== 'closed') {
+    onMessage && (channel.onmessage = message => onMessage(JSON.parse(message.data, jsonDateReviver)))
+    onChannelOpen && (channel.onopen = () => onChannelOpen(channel))
+    onChannelClose && (channel.onclose = () => onChannelClose(channel))
   }
 }
 
-function getConnectionIdentifiersForRoom(room: string) {
-  return Object.keys(connections).filter(identifier => identifier.indexOf(`${room},`) === 0)
-}
+function createPeerConnection<T extends { [key: string]: any }>({ onLocalDescription, onIceCandidate, ...listeners }: PeerConnectionListeners & DataChannelListeners<T> & {
+  onLocalDescription: (sdp: RTCSessionDescription | null) => void,
+}, configuration?: RTCConfiguration) {
+  const connection = new RTCPeerConnection(configuration)
 
-function getChannelIdentifiersForRoom(room: string) {
-  return Object.keys(channels).filter(identifier => identifier.indexOf(`${room},`) === 0)
+  connection.onicecandidate = onIceCandidate
+  connection.onnegotiationneeded = () => onNegotiationNeeded()
+  connection.oniceconnectionstatechange = onIceConnectionStateChange
+  connection.ondatachannel = onDataChannel
+  connection.ontrack = onTrack
+  connection.onicecandidateerror = onIceCandidateError
+  connection.onicegatheringstatechange = onIceGatheringStateChange
+
+  async function onNegotiationNeeded(options?: RTCOfferOptions) {
+    listeners.onNegotiationNeeded && listeners.onNegotiationNeeded(options)
+    await connection.setLocalDescription(await connection.createOffer(options))
+    onLocalDescription(connection.localDescription)
+  }
+
+  async function onIceConnectionStateChange(event: Event) {
+    listeners.onIceConnectionStateChange && listeners.onIceConnectionStateChange(event)
+    connection.iceConnectionState === 'failed' && onNegotiationNeeded({ iceRestart: true })
+  }
+
+  async function onDataChannel(event: RTCDataChannelEvent) {
+    listeners.onDataChannel && listeners.onDataChannel(event)
+  }
+
+  async function onTrack(event: RTCTrackEvent) {
+    listeners.onTrack && listeners.onTrack(event)
+  }
+
+  async function onIceCandidateError(event: Event) {
+    listeners.onIceCandidateError && listeners.onIceCandidateError(event)
+  }
+
+  async function onIceGatheringStateChange(event: Event) {
+    listeners.onIceGatheringStateChange && listeners.onIceGatheringStateChange(event)
+  }
+
+  return connection
 }
 
 export default usePeerConnection

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react'
+import React, { createContext, useCallback, useContext, useEffect, useState } from 'react'
 import { Subject } from 'rxjs'
 import io, { ManagerOptions, SocketOptions } from 'socket.io-client'
 import { v4 as uuid } from 'uuid'
@@ -74,14 +74,7 @@ export function SignalingChannelProvider({ children, signalingChannel }: React.P
   return <SignalingChanelContext.Provider value={signalingChannel}>{children}</SignalingChanelContext.Provider>
 }
 
-type UseSignalingChannelParams = {
-  onNewMember?: (payload: ClientPayload & { room: string }) => void,
-  onLeave?: (payload: Omit<RoomPayload, 'room'> & { room?: string }) => void,
-  onSessionDescription?: (payload: SessionDescriptionPayload) => void,
-  onIceCandidate?: (payload: CandidatePayload) => void
-}
-
-export function useSignalingChannel(listeners?: UseSignalingChannelParams) {
+export function useSignalingChannel() {
   const [isConnected, setIsConnected] = useState(false)
   const signalingChannel = useContext(SignalingChanelContext)
 
@@ -93,42 +86,6 @@ export function useSignalingChannel(listeners?: UseSignalingChannelParams) {
       disconnectSubscription.unsubscribe()
     }
   }, [])
-
-  useEffect(() => {
-    if (listeners?.onNewMember) {
-      const subscription = onNewMember.subscribe(payload => {
-        listeners?.onNewMember && listeners.onNewMember(payload)
-      })
-      return () => subscription.unsubscribe()
-    }
-  }, [listeners])
-
-  useEffect(() => {
-    if (listeners?.onLeave) {
-      const subscription = onLeave.subscribe(payload => {
-        listeners?.onLeave && listeners.onLeave(payload)
-      })
-      return () => subscription.unsubscribe()
-    }
-  }, [listeners])
-
-  useEffect(() => {
-    if (listeners?.onSessionDescription) {
-      const subscription = onSessionDescription.subscribe(payload => {
-        listeners?.onSessionDescription && listeners.onSessionDescription(payload)
-      })
-      return () => subscription.unsubscribe()
-    }
-  }, [listeners])
-
-  useEffect(() => {
-    if (listeners?.onIceCandidate) {
-      const subscription = onIceCandidate.subscribe(payload => {
-        listeners?.onIceCandidate && listeners.onIceCandidate(payload)
-      })
-      return () => subscription.unsubscribe()
-    }
-  }, [listeners])
 
   return { isConnected, ...signalingChannel }
 }

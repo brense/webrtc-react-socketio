@@ -54,8 +54,12 @@ function Room({ room: { id: room, broadcaster }, username, configuration, onLeav
     }
   }, [])
 
-  const { addTrack, removeTrack, createDataChannel, sendMessage } = usePeerConnection<MessageData>({
-    room,
+  const onNewPeerConnection = useCallback((connection: RTCPeerConnection, identifier: string, configuration?: RTCConfiguration) => {
+    console.info('new connection using config', configuration, connection)
+    createDataChannel(identifier)
+  }, [])
+
+  const { addTrack, removeTrack, createDataChannel, sendMessage } = usePeerConnection<MessageData>(room, {
     onTrack: track => {
       if (audioRef.current) {
         audioRef.current.srcObject = track.streams[0]
@@ -66,12 +70,15 @@ function Room({ room: { id: room, broadcaster }, username, configuration, onLeav
         }
       }
     },
-    onChannelOpen: () => sendMessage({ type: 'system', peerId, username, message: 'new member', date: new Date() }),
-    onMessage,
     onIceCandidateError: evt => console.info('ice candidate error', evt),
-    onCreatingPeerConnection: config => console.info('using config', config),
-    ...configuration
-  })
+    onIceCandidate: event => console.info('ice candidate', event?.candidate),
+    onNewPeerConnection,
+    onChannelOpen: () => sendMessage({ type: 'system', peerId, username, message: 'new member', date: new Date() }),
+    onChannelClose: () => console.log('CHANNEL CLOSE!'),
+    onMessage
+  },
+    configuration
+  )
 
   const handleMemberLeave = useCallback((payload: { room: string, from: string }) => {
     if (payload.room === room) {
@@ -106,8 +113,6 @@ function Room({ room: { id: room, broadcaster }, username, configuration, onLeav
     }
   }, [addTrack, removeTrack])
 
-  const handleNewMember = useCallback(({ room, from: remotePeerId }: { room: string, from: string }) => createDataChannel({ room, remotePeerId }), [])
-
   const handleSubmitMessage = useCallback((event: React.FormEvent) => {
     event.preventDefault()
     const message: string = (event.target as any).elements.message.value
@@ -126,10 +131,8 @@ function Room({ room: { id: room, broadcaster }, username, configuration, onLeav
   }, [])
 
   useEffect(() => {
-    socket.on('new member', handleNewMember)
     socket.on('leave', handleMemberLeave)
     return () => {
-      socket.off('new member', handleNewMember)
       socket.off('leave', handleMemberLeave)
     }
   }, [handleMemberLeave, socket])
