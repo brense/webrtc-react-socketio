@@ -83,8 +83,7 @@ const streamRef = useRef<MediaStream>()
 
 Initialize peer connection and listen for audio tracks
 ```jsx
-const { addTrack, removeTrack } = usePeerConnection({
-  room,
+const { addTrack, removeTrack } = usePeerConnection(room, {
   onTrack: (track) => {
     if (audioRef.current) {
       audioRef.current.srcObject = track.streams[0]
@@ -141,26 +140,10 @@ import { useSignalingChannel } from 'webrtc-react-socketio/signaling'
  
 export default function TextRoom({ room }: { room: string }) {
   const { socket } = useSignalingChannel()
-  const { createDataChannel, sendMessage } = usePeerConnection({
-    room,
+  const { createDataChannel, sendMessage } = usePeerConnection(room, {
+    onNewPeerConnection: (conn, identifier) => createDataChannel(identifier)
     onMessage: (data) => console.log('new message', data) // do something with message data
   })
- 
- // create data channel for new member in room
-  const onNewMember = useCallback(
-    ({ room, from: remotePeerId }: { room: string; from: string }) => {
-      createDataChannel({ room, remotePeerId })
-    },
-    [createDataChannel]
-  )
- 
-  // listen for new members in the room so we can create a data channel
-  useEffect(() => {
-    socket.on('new member', onNewMember)
-    return () => {
-      socket.off('new member', onNewMember)
-    };
-  }, [socket, onNewMember])
  
   // send a message
   return <button onClick={() => sendMessage({ message: 'randomstring' })}>Send</button>
