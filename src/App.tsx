@@ -4,6 +4,7 @@ import Room from './Room'
 import { useSignalingChannel } from './signaling'
 import useSnackbar from './useSnackbar'
 import useUsernameDialog from './useUsernameDialog'
+import SettingsDialog from './SettingsDialog'
 
 function App() {
   const [configuration, setConfiguration] = useState<RTCConfiguration>({
@@ -12,6 +13,7 @@ function App() {
     iceCandidatePoolSize: 0
   })
   const [selectedRoom, setSelectedRoom] = useState<{ id: string, name?: string, broadcaster?: string }>()
+  const [showSettings, setShowSettings] = useState(false)
   const [username, setUsername] = useState<string>()
   const [rooms, setRooms] = useState<Array<{ id: string, name?: string, broadcaster?: string }>>([])
   const { isConnected, join, leave, broadcast, socket } = useSignalingChannel()
@@ -68,10 +70,11 @@ function App() {
             <IconButton size="small" onClick={handleShareLinkCopy}><Icon color="primary">link</Icon></IconButton>
           </Tooltip>
         </Box> : <span />}
-        <Box sx={{ display: 'flex', flexWrap: 'nowrap' }}>
+        <Box sx={{ display: 'flex', flexWrap: 'nowrap', alignItems: 'center' }}>
           <Typography variant="body2">Server status:</Typography>
           {isConnected ? <Icon color="success">bolt</Icon> : <Icon color="disabled">power</Icon>}
           <Typography variant="body2" color={isConnected ? 'success' : 'textSecondary'}>{isConnected ? 'Connected' : 'Disconnected'}</Typography>
+          <IconButton onClick={() => setShowSettings(true)}><Icon>settings</Icon></IconButton>
         </Box>
       </Toolbar>
     </AppBar>
@@ -98,6 +101,7 @@ function App() {
         </CardContent>
       </Card>}
     </Box>
+    <SettingsDialog open={showSettings} onClose={() => setShowSettings(false)} configuration={configuration} setConfiguration={setConfiguration} />
   </Box>
 }
 

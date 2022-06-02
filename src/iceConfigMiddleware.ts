@@ -17,7 +17,7 @@ const iceServers = [
   //{ urls: 'stun:stun.anyfirewall.com:3478' },
   //{ urls: 'stun:openrelay.metered.ca:80', },
   //{ urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject', },
-  //{ urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject', },
+  { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject', },
   //{ urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject', },
   //{ urls: 'turn:turn.anyfirewall.com:443', credential: 'webrtc', username: 'webrtc' },
   //{ urls: 'turn:turn.anyfirewall.com:443?transport=tcp', credential: 'webrtc', username: 'webrtc' },
