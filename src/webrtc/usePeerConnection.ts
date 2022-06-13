@@ -25,6 +25,11 @@ function usePeerConnection<T extends { [key: string]: any }>(room: string, { onN
   const { sendIceCandidate, sendSessionDescription, socket } = useSignalingChannel()
   const dataChannelListeners = useMemo(() => ({ onChannelOpen, onChannelClose, onMessage }), [onChannelOpen, onChannelClose, onMessage])
 
+  useEffect(() => {
+    Object.keys(peers.current).forEach(k => peers.current[k].connection.close())
+    peers.current = {}
+  }, [room])
+
   const getPeer = useCallback(({ from: remotePeerId, room: roomCheck }: { from: string, room: string }) => {
     if (roomCheck !== room) {
       return
