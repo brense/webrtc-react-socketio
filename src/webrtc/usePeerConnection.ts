@@ -80,6 +80,7 @@ function usePeerConnection<T extends { [key: string]: any }>(room: string, { onN
     getPeersForRoom().forEach(async ({ connection, identifier }) => {
       const senders = connection.getSenders()
       if (senders.length > 0) {
+        console.log('SENDERS', senders)
         await Promise.all(senders.map(sender => sender.replaceTrack(track)))
       } else {
         const sender = connection.addTrack(track, ...streams)
