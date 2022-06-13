@@ -21,17 +21,9 @@ type DataChannelListeners<T extends { [key: string]: any }> = {
 
 function usePeerConnection<T extends { [key: string]: any }>(room: string, { onNewPeerConnection, onIceCandidate, onDataChannel, onChannelOpen, onChannelClose, onMessage, ...peerConnectionListeners }: Omit<PeerConnectionListeners, 'onIceCandidate'> & { onIceCandidate?: (event?: RTCPeerConnectionIceEvent) => void } & DataChannelListeners<T>, configuration?: RTCConfiguration) {
   const peers = useRef<{ [key: string]: { connection: RTCPeerConnection, sender?: RTCRtpSender, channel?: RTCDataChannel } }>({})
+  const trackRef = useRef<{ track: MediaStreamTrack, streams: MediaStream[] }>()
   const { sendIceCandidate, sendSessionDescription, socket } = useSignalingChannel()
   const dataChannelListeners = useMemo(() => ({ onChannelOpen, onChannelClose, onMessage }), [onChannelOpen, onChannelClose, onMessage])
-
-  useEffect(() => {
-    Object.keys(peers.current).forEach(identifier => {
-      peers.current[identifier].connection.close()
-      peers.current[identifier].sender?.track?.stop()
-      peers.current[identifier].channel?.close()
-    })
-    peers.current = {}
-  }, [room])
 
   const getPeer = useCallback(({ from: remotePeerId, room: roomCheck }: { from: string, room: string }) => {
     if (roomCheck !== room) {
@@ -52,6 +44,9 @@ function usePeerConnection<T extends { [key: string]: any }>(room: string, { onN
           setDataChannelListeners(event.channel, dataChannelListeners)
         }
       }, configuration)
+      if (trackRef.current) {
+        connection.addTrack(trackRef.current.track, ...trackRef.current.streams)
+      }
       peers.current[identifier] = { connection }
       onNewPeerConnection && onNewPeerConnection(connection, identifier, configuration)
     }
@@ -77,31 +72,16 @@ function usePeerConnection<T extends { [key: string]: any }>(room: string, { onN
   }, [setDataChannelListeners, room])
 
   const addTrack = useCallback((track: MediaStreamTrack, ...streams: MediaStream[]) => {
+    trackRef.current = { track, streams }
     getPeersForRoom().forEach(async ({ connection, identifier }) => {
-      const senders = connection.getSenders()
-      if (senders.length > 0) {
-        console.log('SENDERS', senders)
-        await Promise.all(senders.map(sender => sender.replaceTrack(track)))
-      } else {
-        const sender = connection.addTrack(track, ...streams)
-        peers.current[identifier].sender = sender
-      }
+      const sender = connection.addTrack(track, ...streams)
+      peers.current[identifier].sender = sender
     })
   }, [room])
 
   const removeTrack = useCallback(() => {
     getPeersForRoom().forEach(({ sender, connection }) => sender && connection.removeTrack(sender))
-  }, [room])
-
-  const destroyPeerConnection = useCallback(({ from: remotePeerId, room: roomCheck }: { from: string, room: string }) => {
-    if (roomCheck !== room) {
-      return
-    }
-    const identifier = `${room},${remotePeerId}`
-    peers.current[identifier]?.connection.close()
-    peers.current[identifier]?.sender?.track?.stop()
-    peers.current[identifier]?.channel?.close()
-    delete peers.current[identifier]
+    trackRef.current = undefined
   }, [room])
 
   const receiveSessionDescription = useCallback(async ({ sdp, ...payload }: { from: string, room: string, sdp: RTCSessionDescriptionInit }) => {
@@ -140,12 +120,10 @@ function usePeerConnection<T extends { [key: string]: any }>(room: string, { onN
     socket.on('desc', receiveSessionDescription)
     socket.on('candidate', receiveCandidate)
     socket.on('new member', getPeer)
-    socket.on('leave', destroyPeerConnection)
     return () => {
       socket.off('desc', receiveSessionDescription)
       socket.off('candidate', receiveCandidate)
       socket.off('new member', getPeer)
-      socket.off('leave', destroyPeerConnection)
     }
   }, [socket, room])
 
