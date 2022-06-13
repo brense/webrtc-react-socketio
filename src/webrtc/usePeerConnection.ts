@@ -20,7 +20,6 @@ type DataChannelListeners<T extends { [key: string]: any }> = {
 }
 
 function usePeerConnection<T extends { [key: string]: any }>(room: string, { onNewPeerConnection, onIceCandidate, onDataChannel, onChannelOpen, onChannelClose, onMessage, ...peerConnectionListeners }: Omit<PeerConnectionListeners, 'onIceCandidate'> & { onIceCandidate?: (event?: RTCPeerConnectionIceEvent) => void } & DataChannelListeners<T>, configuration?: RTCConfiguration) {
-  const trackRef = useRef<{ track: MediaStreamTrack, streams: MediaStream[] }>()
   const peers = useRef<{ [key: string]: { connection: RTCPeerConnection, sender?: RTCRtpSender, channel?: RTCDataChannel } }>({})
   const { sendIceCandidate, sendSessionDescription, socket } = useSignalingChannel()
   const dataChannelListeners = useMemo(() => ({ onChannelOpen, onChannelClose, onMessage }), [onChannelOpen, onChannelClose, onMessage])
@@ -54,9 +53,6 @@ function usePeerConnection<T extends { [key: string]: any }>(room: string, { onN
         }
       }, configuration)
       peers.current[identifier] = { connection }
-      if (trackRef.current && !peers.current[identifier].sender) {
-        peers.current[identifier].sender = connection.addTrack(trackRef.current.track, ...trackRef.current.streams)
-      }
       onNewPeerConnection && onNewPeerConnection(connection, identifier, configuration)
     }
     return peers.current[identifier]
@@ -81,15 +77,18 @@ function usePeerConnection<T extends { [key: string]: any }>(room: string, { onN
   }, [setDataChannelListeners, room])
 
   const addTrack = useCallback((track: MediaStreamTrack, ...streams: MediaStream[]) => {
-    trackRef.current = { track, streams }
-    getPeersForRoom().forEach(({ connection, identifier }) => {
-      const sender = connection.addTrack(track, ...streams)
-      peers.current[identifier].sender = sender
+    getPeersForRoom().forEach(async ({ connection, identifier }) => {
+      const senders = connection.getSenders()
+      if (senders.length > 0) {
+        await Promise.all(senders.map(sender => sender.replaceTrack(track)))
+      } else {
+        const sender = connection.addTrack(track, ...streams)
+        peers.current[identifier].sender = sender
+      }
     })
   }, [room])
 
   const removeTrack = useCallback(() => {
-    trackRef.current = undefined
     getPeersForRoom().forEach(({ sender, connection }) => sender && connection.removeTrack(sender))
   }, [room])
 
