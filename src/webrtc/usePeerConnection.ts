@@ -54,6 +54,9 @@ function usePeerConnection<T extends { [key: string]: any }>(room: string, { onN
         }
       }, configuration)
       peers.current[identifier] = { connection }
+      if (trackRef.current && !peers.current[identifier].sender) {
+        peers.current[identifier].sender = connection.addTrack(trackRef.current.track, ...trackRef.current.streams)
+      }
       onNewPeerConnection && onNewPeerConnection(connection, identifier, configuration)
     }
     return peers.current[identifier]
