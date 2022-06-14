@@ -30,7 +30,7 @@ function App() {
   const handleLeave = useCallback(() => {
     selectedRoom && leave({ room: selectedRoom.id })
     setSelectedRoom(undefined)
-  }, [leave])
+  }, [leave, selectedRoom])
 
   const handleSubmit = useCallback((event: FormEvent) => {
     event.preventDefault()

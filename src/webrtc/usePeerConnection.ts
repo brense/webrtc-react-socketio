@@ -26,16 +26,20 @@ function usePeerConnection<T extends { [key: string]: any }>(room: string, { onN
   const dataChannelListeners = useMemo(() => ({ onChannelOpen, onChannelClose, onMessage }), [onChannelOpen, onChannelClose, onMessage])
 
   useEffect(() => {
-    Object.keys(peers.current).forEach(k => peers.current[k].connection.close())
-    peers.current = {}
+    return () => {
+      Object.keys(peers.current).forEach(k => peers.current[k].connection.close)
+      peers.current = {}
+    }
   }, [room])
 
-  const getPeer = useCallback(({ from: remotePeerId, room: roomCheck }: { from: string, room: string }) => {
+  const getPeer = useCallback(({ from: remotePeerId, room: roomCheck }: { from: string, room: string }, forceNew = true) => {
     if (roomCheck !== room) {
       return
     }
     const identifier = `${room},${remotePeerId}`
-    if (!peers.current[identifier]) {
+    if (!peers.current[identifier] || forceNew) {
+      console.log('CREATE NEW', peers.current, forceNew)
+      peers.current[identifier] && peers.current[identifier].connection.close()
       const connection = createPeerConnection({
         ...peerConnectionListeners,
         onIceCandidate: event => {
@@ -93,7 +97,7 @@ function usePeerConnection<T extends { [key: string]: any }>(room: string, { onN
     if (payload.room !== room) {
       return
     }
-    const { connection } = getPeer(payload) as { connection: RTCPeerConnection }
+    const { connection } = getPeer(payload, false) as { connection: RTCPeerConnection }
     try {
       if (sdp?.type === 'offer') {
         await connection.setRemoteDescription(sdp)
@@ -110,10 +114,10 @@ function usePeerConnection<T extends { [key: string]: any }>(room: string, { onN
   }, [getPeer, sendIceCandidate, sendSessionDescription])
 
   const receiveCandidate = useCallback(async ({ candidate, ...payload }: { from: string, room: string, candidate: RTCIceCandidateInit }) => {
-    if (payload.room !== room) {
+    if (payload.room !== room || !candidate.candidate || candidate.candidate === '') {
       return
     }
-    const { connection } = getPeer(payload) as { connection: RTCPeerConnection }
+    const { connection } = getPeer(payload, false) as { connection: RTCPeerConnection }
     try {
       await connection.addIceCandidate(new RTCIceCandidate(candidate))
     } catch (error) {
@@ -121,14 +125,24 @@ function usePeerConnection<T extends { [key: string]: any }>(room: string, { onN
     }
   }, [getPeer, sendIceCandidate, sendSessionDescription])
 
+  const destroyConnection = useCallback(({ from: remotePeerId, room }: { from: string, room?: string }) => {
+    if (remotePeerId && room) {
+      const identifier = `${room},${remotePeerId}`
+      peers.current[identifier].connection.close()
+      delete peers.current[identifier]
+    }
+  }, [])
+
   useEffect(() => {
     socket.on('desc', receiveSessionDescription)
     socket.on('candidate', receiveCandidate)
     socket.on('new member', getPeer)
+    socket.on('leave', destroyConnection)
     return () => {
       socket.off('desc', receiveSessionDescription)
       socket.off('candidate', receiveCandidate)
       socket.off('new member', getPeer)
+      socket.off('leave', destroyConnection)
     }
   }, [socket, room])
 

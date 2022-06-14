@@ -152,6 +152,7 @@ function Room({ room: { id: room, broadcaster }, username, configuration, onLeav
       <FilledInput sx={{ marginRight: 1 }} name="message" role="presentation" autoComplete="off" autoFocus fullWidth />
       <IconButton size="small" onClick={toggleBroadcast}><Icon color={isRecording ? 'success' : 'inherit'}>{isRecording ? 'mic' : 'mic_off'}</Icon></IconButton>
       <IconButton disabled={members.length === 0}><Badge badgeContent={members.length} color="primary"><Icon>person</Icon></Badge></IconButton>
+      <IconButton size="large" onClick={() => onLeave && onLeave()}><Icon fontSize="large">phone</Icon></IconButton>
     </Box>
   </Box >
 }
