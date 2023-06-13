@@ -1,6 +1,6 @@
 {
   "compilerOptions": {
-    "target": "es2018",
+    "target": "es2020",
     "module": "commonjs",
     "outDir": "dist",
     "sourceMap": false,
@@ -10,17 +10,12 @@
     "esModuleInterop": true,
     "moduleResolution": "node",
     "skipLibCheck": true,
-    "lib": [
-      "es2018",
-      "esnext.asynciterable"
-    ]
+    "lib": ["es2020", "esnext.asynciterable"]
   },
   "include": [
     "src/signalingServer.ts",
     "src/serveStatic.ts",
     "src/iceConfigMiddleware.ts"
   ],
-  "exclude": [
-    "node_modules"
-  ]
+  "exclude": ["node_modules"]
 }

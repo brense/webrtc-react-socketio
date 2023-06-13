@@ -1,84 +1,34 @@
 {
   "name": "webrtc-react-socketio",
-  "version": "3.0.8",
-  "main": "./webrtc/index.js",
-  "types": "./webrtc/index.d.ts",
-  "author": "Rense Bakker",
-  "license": "ISC",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/brense/webrtc-react-socketio.git"
-  },
-  "bugs": {
-    "url": "https://github.com/brense/webrtc-react-socketio/issues"
-  },
-  "homepage": "https://github.com/brense/webrtc-react-socketio#readme",
-  "dependencies": {
-    "dotenv": "^16.0.1",
-    "express": "^4.18.1",
-    "jsonwebtoken": "^8.5.1",
-    "rxjs": "^7.5.5",
-    "socket.io": "^4.5.0",
-    "socket.io-client": "^4.5.0",
-    "yargs": "^17.5.0",
-    "uuid": "^8.3.2"
-  },
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
   "scripts": {
-    "build:npm": "rimraf lib-esm && tsc --p ./tsconfig.npm.json && copyfiles package.json README.md lib-esm && npm publish ./lib-esm",
-    "start": "vite --host",
-    "start:server": "ts-node-dev --project ./tsconfig.server.json ./src/signalingServer.ts",
-    "build:app": "tsc && vite build",
-    "serve": "vite preview",
-    "prebuild": "rimraf dist",
-    "build": "npm run build:app && tsc --p tsconfig.server.json",
-    "deploy": "node ./dist/signalingServer.js",
-    "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "dev": "vite",
+    "start": "node ./dist/server.js",
+    "build": "tsc && vite build && tsc --p tsconfig.server.json",
+    "lint": "eslint src --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+    "preview": "vite preview"
   },
-  "eslintConfig": {
-    "extends": [
-      "react-app",
-      "react-app/jest"
-    ]
-  },
-  "browserslist": {
-    "production": [
-      ">0.2%",
-      "not dead",
-      "not op_mini all"
-    ],
-    "development": [
-      "last 1 chrome version",
-      "last 1 firefox version",
-      "last 1 safari version"
-    ]
+  "dependencies": {
+    "express": "^4.18.2",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "socket.io": "^4.6.2",
+    "uuid": "^9.0.0"
   },
   "devDependencies": {
-    "@emotion/react": "^11.9.0",
-    "@emotion/styled": "^11.8.1",
-    "@mui/material": "^5.7.0",
-    "@testing-library/jest-dom": "^5.16.4",
-    "@testing-library/react": "^13.2.0",
-    "@testing-library/user-event": "^14.2.0",
-    "@types/express": "^4.17.13",
-    "@types/jest": "^27.5.1",
-    "@types/jsonwebtoken": "^8.5.8",
-    "@types/node": "^17.0.33",
-    "@types/react": "^18.0.9",
-    "@types/react-dom": "^18.0.4",
-    "@types/uuid": "^8.3.4",
-    "@types/yargs": "^17.0.10",
-    "@vitejs/plugin-react-refresh": "^1.3.6",
-    "copyfiles": "^2.4.1",
-    "moment": "^2.29.3",
-    "react": "^18.1.0",
-    "react-dom": "^18.1.0",
-    "rimraf": "^3.0.2",
-    "ts-node-dev": "^1.1.8",
-    "typescript": "^4.6.4",
-    "vite": "^2.9.9",
-    "vite-plugin-env-compatible": "^1.1.1",
-    "vite-plugin-svgr": "^2.1.0",
-    "web-vitals": "^2.1.4"
+    "@types/express": "^4.17.17",
+    "@types/react": "^18.0.37",
+    "@types/react-dom": "^18.0.11",
+    "@types/uuid": "^9.0.2",
+    "@typescript-eslint/eslint-plugin": "^5.59.0",
+    "@typescript-eslint/parser": "^5.59.0",
+    "@vitejs/plugin-react": "^4.0.0",
+    "eslint": "^8.38.0",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "eslint-plugin-react-refresh": "^0.3.4",
+    "typescript": "^5.0.2",
+    "vite": "^4.3.9"
   }
 }
